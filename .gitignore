@@ -1,0 +1,39 @@
+# Local Pi runtime state
+.atl/
+
+# Local tool indexes (regenerable)
+/.codegraph/
+/.impeccable/
+
+# Python and uv runtime artifacts
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Environments and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+secrets/
+
+# Streamlit local secrets
+.streamlit/secrets.toml
+
+# Local bounded raw capture output (opt-in persistence; manifests stay committable)
+data/raw/
+data/processed/
+
+# Generated model/runtime artifacts
+*.db
+*.sqlite3
+.runs/
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
