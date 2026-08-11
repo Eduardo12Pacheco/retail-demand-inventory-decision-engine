@@ -1,6 +1,7 @@
 # Design — retail-demand-inventory-decision-engine
 
-Status: **scaffold / implementation not started**
+Status: **implemented as a synthetic-fixture prototype** (no real data used;
+see `docs/source-contract.md`).
 
 ## Problem
 
@@ -23,15 +24,15 @@ src/retail_demand_inventory/
 
 Each layer is replaceable and only depends on documented interfaces.
 
-## Key decisions (scaffold phase)
+## Key decisions
 
 | Topic | Decision |
 | --- | --- |
 | Language | Python >=3.11, `uv`, hatchling src layout |
-| Forecast interface | To be designed once the source contract is met |
-| Simulation | Discrete-event, fixed seed, policy-in → outcomes-out |
-| Evidence | Every recommendation must cite the simulation run that supports it |
-| Demo | Local Streamlit app reading committed fixtures only |
+| Forecast interface | `fit(train_data) / predict(future_context, horizon)` over single-SKU `DemandTable`; naive, moving average, SES, histogram gradient boosting |
+| Simulation | Deterministic daily lost-sales engine, fixed seed, policy-in → outcomes-out, auditable run IDs |
+| Evidence | Every recommendation cites the simulation run IDs, versions, and report paths that support it |
+| Demo | Local Streamlit app reading committed fixtures and the generated report only |
 
 ## No-goals
 

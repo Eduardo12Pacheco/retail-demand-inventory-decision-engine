@@ -1,0 +1,29 @@
+{
+  "accepted": true,
+  "canonical_mapping": {
+    "category": "first_category_id style (synthetic)",
+    "date": "dt style (synthetic)",
+    "demand_units": "sale_amount-style globally normalized continuous units (synthetic)",
+    "sku": "store_id|product_id style (synthetic)",
+    "stockout_flag": "hours_stock_status-derived flag (synthetic)"
+  },
+  "checksum": "7610dad25f4d2c50415d66e6b5b5ec3db481cd1210ea86de00c0e8866c938721",
+  "checksum_algorithm": "sha256",
+  "dataset_version": "1.0",
+  "fields": [
+    "sku",
+    "date",
+    "demand_units",
+    "category",
+    "stockout_flag"
+  ],
+  "file_path": "data/fixtures/freshretailnet_style_synthetic.csv",
+  "license_name": "MIT (original synthetic content; the audited source reference is CC BY 4.0)",
+  "license_url": "https://opensource.org/license/mit",
+  "missingness_policy": "no internal gaps; strict daily cadence enforced; stockout_flag None means not annotated",
+  "name": "retail-demand-inventory-decision-engine synthetic fixture",
+  "notes": "SYNTHETIC fixture for offline development/tests/demo only. Not derived from, sampled from, or representative of FreshRetailNet-50K. Generated deterministically with seed 20260811. NOT a real business result.",
+  "publisher": "retail-demand-inventory-decision-engine (original synthetic content)",
+  "retrieval_date": "2026-08-11",
+  "source_url": "https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K (styled-after reference only; not used, not downloaded, not derived)"
+}

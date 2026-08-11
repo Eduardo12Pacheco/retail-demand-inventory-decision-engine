@@ -1,6 +1,7 @@
 # Product — retail-demand-inventory-decision-engine
 
-Status: **scaffold / implementation not started**
+Status: **implemented as a synthetic-fixture prototype** (no real data used;
+every reported number is explicitly labeled synthetic).
 
 ## Platform
 

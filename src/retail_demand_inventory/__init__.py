@@ -1,8 +1,23 @@
 """Retail demand, inventory, and replenishment decision engine.
 
-Scaffold package. Implementation has not started.
+Prototype implementation on a synthetic fixture. All reported numbers come
+from committed synthetic data; nothing here is a real-world result.
 """
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+from . import data, decisions, evaluation, forecasting, simulation
+from .versions import PACKAGE_VERSION, PROTOCOL_VERSION, SCHEMA_VERSION
+
+__version__ = PACKAGE_VERSION
+
+__all__ = [
+    "PACKAGE_VERSION",
+    "PROTOCOL_VERSION",
+    "SCHEMA_VERSION",
+    "data",
+    "decisions",
+    "evaluation",
+    "forecasting",
+    "simulation",
+]

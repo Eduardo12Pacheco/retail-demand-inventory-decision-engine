@@ -1,10 +1,13 @@
 [project]
 name = "retail-demand-inventory-decision-engine"
 version = "0.1.0"
-description = "Demand forecasting, inventory policy simulation, and replenishment decisions for retail. Scaffold only; implementation not started."
+description = "Demand forecasting, inventory policy simulation, and replenishment decisions for retail, with reproducible evidence. Prototype on a synthetic fixture."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "numpy>=2.0,<3",
+    "scikit-learn>=1.5",
+]
 
 [project.optional-dependencies]
 # Interactive demo (scripts/demo_*.py). Kept as an optional extra so the
