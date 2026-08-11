@@ -1,0 +1,79 @@
+{
+  "access_method": "huggingface.co dataset resolve endpoint over HTTPS, revision-pinned URL",
+  "attribution": "FreshRetailNet-50K by Dingdong Limited (Hugging Face org Dingdong-Inc), version 1.0 (release 2025-05-08), Hugging Face dataset id Dingdong-Inc/FreshRetailNet-50K, pinned revision 08c1fab7f9257bc73679d415d65d644165d351d4, licensed CC BY 4.0.",
+  "canonical_content_sha256": "cc7c57e6bd4071e1628e79833869ed7e11d856236c8db5da399fa21955ebd160",
+  "canonicalization_rule": "Read only used columns from the pinned parquet files; map store_id|product_id -> sku, dt -> date, sale_amount -> demand_units, first_category_id -> category, stock_hour6_22_cnt > 0 -> stockout_flag; reject invalid rows with deterministic reasons; fill internal missing days within each SKU's observed span with demand_units=0.0 and stockout_flag=None; canonical content = JSON of the sorted canonical records over the bounded population.",
+  "canonicalization_version": "1",
+  "citation": "@article{2025freshretailnet-50k, title={FreshRetailNet-50K: A Stockout-Annotated Censored Demand Dataset for Latent Demand Recovery and Forecasting in Fresh Retail}, author={Yangyang Wang, Jiawei Gu, Li Long, Xin Li, Li Shen, Zhouyu Fu, Xiangjun Zhou, Xu Jiang}, year={2025}, eprint={2505.16319}, archivePrefix={arXiv}, primaryClass={cs.LG}, url={https://arxiv.org/abs/2505.16319}}",
+  "dataset_id": "Dingdong-Inc/FreshRetailNet-50K",
+  "dataset_version": "1.0",
+  "expected_schema": {
+    "activity_flag": "int32",
+    "avg_humidity": "double",
+    "avg_temperature": "double",
+    "avg_wind_level": "double",
+    "city_id": "int64",
+    "discount": "double",
+    "dt": "string",
+    "first_category_id": "int64",
+    "holiday_flag": "int32",
+    "hours_sale": "list<element: double>",
+    "hours_stock_status": "list<element: int64>",
+    "management_group_id": "int64",
+    "precpt": "double",
+    "product_id": "int64",
+    "sale_amount": "double",
+    "second_category_id": "int64",
+    "stock_hour6_22_cnt": "int32",
+    "store_id": "int64",
+    "third_category_id": "int64"
+  },
+  "gates": {
+    "license_verified": true,
+    "schema_verified": true,
+    "snapshot_verified": true,
+    "source_verified": true,
+    "stockout_semantics_verified": true
+  },
+  "license_name": "Creative Commons Attribution 4.0 International (CC BY 4.0)",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+  "manifest_version": "1",
+  "name": "FreshRetailNet-50K pinned snapshot (real audited source, bounded evaluation)",
+  "pinned_revision": "08c1fab7f9257bc73679d415d65d644165d351d4",
+  "publisher": "Dingdong Limited (Hugging Face org Dingdong-Inc)",
+  "raw_files": [
+    {
+      "archive_checksum": null,
+      "expected_checksum_source": "HF LFS SHA-256 metadata (dataset server), independently re-verified against the pinned revision on 2026-08-11",
+      "expected_sha256": "6706832db892bbae4969c19d87e07975d2543d2ba7d7d4756360654785de5a3d",
+      "expected_size": 106436287,
+      "extracted_file_checksum": null,
+      "local_name": "freshretailnet-08c1fab7f9257bc73679d415d65d644165d351d4-train.parquet",
+      "name": "train",
+      "observed_sha256": "6706832db892bbae4969c19d87e07975d2543d2ba7d7d4756360654785de5a3d",
+      "observed_size": 106436287,
+      "url": "https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/resolve/08c1fab7f9257bc73679d415d65d644165d351d4/data/train.parquet"
+    },
+    {
+      "archive_checksum": null,
+      "expected_checksum_source": "HF LFS SHA-256 metadata (dataset server), independently re-verified against the pinned revision on 2026-08-11",
+      "expected_sha256": "1b118840664280c6b88bffc84c80ee1f54c05d911e354b7599e5da10995e960e",
+      "expected_size": 8440124,
+      "extracted_file_checksum": null,
+      "local_name": "freshretailnet-08c1fab7f9257bc73679d415d65d644165d351d4-eval.parquet",
+      "name": "eval",
+      "observed_sha256": "1b118840664280c6b88bffc84c80ee1f54c05d911e354b7599e5da10995e960e",
+      "observed_size": 8440124,
+      "url": "https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/resolve/08c1fab7f9257bc73679d415d65d644165d351d4/data/eval.parquet"
+    }
+  ],
+  "retrieval_date": "2026-08-11",
+  "schema_report_path": "data/reports/freshretailnet-real-schema.json",
+  "source_urls": {
+    "page": "https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K",
+    "readme": "https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/raw/08c1fab7f9257bc73679d415d65d644165d351d4/README.md",
+    "tree": "https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/tree/08c1fab7f9257bc73679d415d65d644165d351d4"
+  },
+  "stockout_derivation_rule": "stock_hour6_22_cnt > 0 (documented number of out-of-stock hours in 06:00-22:00) => stockout_flag True; 0 => False; missing => unknown (None); value validated as integer in 0..17; never derived from sale_amount.",
+  "stockout_derivation_version": "1"
+}

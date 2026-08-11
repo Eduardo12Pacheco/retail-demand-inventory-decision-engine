@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +59,12 @@ def load_json(path: Path) -> Any:
 
 @dataclass(frozen=True)
 class ExperimentReport:
-    """Top-level evaluation report produced by the materializer."""
+    """Top-level evaluation report produced by the materializer.
+
+    `extra` is an optional mapping merged at the top level of the serialized
+    report. It stays empty for the synthetic fixture report (byte-identical
+    output) and carries the real-snapshot provenance section only in real mode.
+    """
 
     meta: Mapping[str, object]
     dataset: Mapping[str, object]
@@ -68,9 +73,10 @@ class ExperimentReport:
     limitations: tuple[str, ...]
     overall: Mapping[str, object]
     per_sku: Mapping[str, Mapping[str, object]]
+    extra: Mapping[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        base: dict[str, object] = {
             "meta": dict(self.meta),
             "dataset": dict(self.dataset),
             "protocol": dict(self.protocol),
@@ -79,9 +85,21 @@ class ExperimentReport:
             "overall": dict(self.overall),
             "per_sku": {sku: dict(section) for sku, section in self.per_sku.items()},
         }
+        if self.extra:
+            base.update(self.extra)
+        return base
 
     @classmethod
     def from_dict(cls, data: Mapping[str, object]) -> ExperimentReport:
+        base_keys = {
+            "meta",
+            "dataset",
+            "protocol",
+            "assumptions",
+            "limitations",
+            "overall",
+            "per_sku",
+        }
         return cls(
             meta=dict(data["meta"]),
             dataset=dict(data["dataset"]),
@@ -90,6 +108,7 @@ class ExperimentReport:
             limitations=tuple(str(l) for l in data["limitations"]),
             overall=dict(data["overall"]),
             per_sku={str(k): dict(v) for k, v in data["per_sku"].items()},
+            extra={str(k): v for k, v in data.items() if k not in base_keys},
         )
 
     def save(self, path: Path) -> None:

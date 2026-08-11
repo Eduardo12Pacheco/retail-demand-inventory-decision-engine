@@ -45,15 +45,8 @@ it.
 
 - A SKU is evaluated if it has a continuous daily series that supports the
   required minimum history, at least one fold, and the final test window.
-  The fixture defines 2 SKUs that meet these criteria.
-
-## Missing-day and stockout treatment
-
-- Missing days are absent from the raw rows and are filled as zeros by the
-  loaders; they are then ordinary (zero-demand) days.
-- `stockout_flag` days remain in the series with their observed (possibly
-  zero) demand. **Forecasts target observed sales, not unconstrained demand**;
-  censoring is documented, not corrected.
+  The fixture defines 2 SKUs that meet these criteria; the real snapshot
+  population is selected by the documented bounded rule (see below).
 
 ## No future-feature leakage
 
@@ -71,6 +64,54 @@ it.
   regardless) draws from `random.Random(SEED)` / sklearn's fixed
   configuration. Two runs of the materializer with identical inputs produce
   byte-identical reports.
+
+## Source modes
+
+- **Fixture mode (default, offline):** `materialize --source fixture` (or the
+  plain `python -m retail_demand_inventory.evaluation.materialize`) runs on the
+  committed synthetic fixture. It reads only committed files under
+  `data/fixtures/`, `data/manifests/`, `data/evaluations/` and **never touches
+  the network**. Output: `data/evaluations/experiment_report.json`.
+- **Real mode (pinned snapshot):** `materialize --source real` runs on the
+  verified raw parquet files under `data/raw/`. It **fails clearly** if raw
+  files are absent, if any manifest gate is unverified, if raw/canonical
+  checksums mismatch, or if the canonical checksum was never recorded — it
+  **never falls back to the fixture**. Output:
+  `data/evaluations/freshretailnet-real-report.json`.
+
+## Real snapshot population (fixed before any metric)
+
+The real evaluation is a **`Deterministic bounded evaluation over pinned
+snapshot`** — it is NOT a full-dataset result and does not generalize.
+
+Population rule (identical rule text is recorded in the manifest, the schema
+report, and the report): select the first `MAX_POPULATION_KEYS = 10` keys in
+ascending `(store_id, product_id)` numeric order among keys that are
+**observed in train** and whose **combined train+eval** records span at least
+`REQUIRED_HISTORY_DAYS = 63` consecutive days (the minimum the protocol needs:
+`MIN_TRAIN_PERIODS + HORIZON + FINAL_TEST_PERIODS = 42 + 7 + 14`) AND share the
+identical date span (the modal span among qualifying keys, so every selected
+key covers the same calendar the protocol requires). **No random sampling.**
+The selection rule is defined in docs and the manifest before any metric is
+computed and is never changed after seeing results. The report records source
+row count, selected row count, excluded row count, selected keys/count, date
+range, and the rule.
+
+The publisher's own `train`/`eval` split is NOT used for evaluation: this
+project re-splits chronologically over each selected key's combined span.
+
+## Missing-day and stockout treatment
+
+- Missing days are absent from the raw rows and are filled as zeros by the
+  loaders; they are then ordinary (zero-demand) days, and a missing day is
+  **never** treated as a stockout.
+- `stockout_flag` is derived directly from the documented source field
+  `stock_hour6_22_cnt > 0` (integer validated in 0..17); a missing value stays
+  unknown (`None`). **Zero sales never imply a stockout** (verified on real
+  bytes: stockout days retain positive sales).
+- `stockout_flag` days remain in the series with their observed (possibly
+  zero) demand. **Forecasts and metrics target observed sales, not
+  unconstrained demand**; censoring is documented, not corrected.
 
 ## Hyperparameter policy
 
@@ -157,6 +198,11 @@ reported as such; undefined values never silently count as zero.
 
 - [x] Splits, seeds, horizons, and metric formulas committed in this document.
 - [x] A single reproducible command reproduces every reported number:
-  `uv run python -m retail_demand_inventory.evaluation.materialize`.
+  `uv run python -m retail_demand_inventory.evaluation.materialize` (fixture) and
+  `uv run python -m retail_demand_inventory.evaluation.materialize --source real
+  --manifest data/manifests/freshretailnet-real.json` (real, after acquisition
+  and schema report).
 - [x] Baseline comparison (naive forecast) is included in every report.
 - [x] Every recommendation cites the simulation run IDs that support it.
+- [x] Real mode is labeled `Deterministic bounded evaluation over pinned
+  snapshot`, never full-dataset, and never falls back to the fixture.

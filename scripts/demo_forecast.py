@@ -34,6 +34,75 @@ def _load_report() -> dict:
     return load_json(report_path)
 
 
+def _real_status_text() -> str:
+    """Real-snapshot status from committed files only; never touches data/raw."""
+    report_path = ROOT / "data/evaluations" / "freshretailnet-real-report.json"
+    manifest_path = ROOT / "data/manifests" / "freshretailnet-real.json"
+    if not report_path.exists():
+        recovery = (
+            "**Real-snapshot mode is unavailable** (report not found). "
+            "To enable it, run once with network:\n\n"
+            "    uv run python -m retail_demand_inventory.data.acquisition \\\n"
+            "        --manifest data/manifests/freshretailnet-real.json --output-dir data/raw\n"
+            "    uv run python -m retail_demand_inventory.data.schema_report \\\n"
+            "        --manifest data/manifests/freshretailnet-real.json \\\n"
+            "        --report data/reports/freshretailnet-real-schema.json\n"
+            "    uv run python -m retail_demand_inventory.evaluation.materialize \\\n"
+            "        --source real --manifest data/manifests/freshretailnet-real.json"
+        )
+        if not manifest_path.exists():
+            recovery = (
+                "**Real-snapshot mode is unavailable** (manifest and report not "
+                "found). Acquire and evaluate the pinned snapshot with the "
+                "commands documented in `docs/demo-script.md`."
+            )
+        return recovery
+
+    from retail_demand_inventory.evaluation.reports import load_json
+
+    report = load_json(report_path)
+    dataset = report["dataset"]
+    real = report.get("real", {})
+    stockout = report["protocol"].get("stockout_semantics", {})
+    lines = [
+        (
+            f"- **Label**: `{real.get('evaluation_label', dataset.get('evaluation_label'))}` — "
+            "a bounded evaluation, NOT a full-dataset result; does not generalize."
+        ),
+        (
+            f"- **Dataset**: {dataset.get('dataset_id')} · pinned revision "
+            f"`{real.get('pinned_revision')}`"
+        ),
+        (
+            f"- **Manifest**: `{dataset.get('manifest_path')}` · version "
+            f"`{dataset.get('manifest_version')}` · gates verified"
+        ),
+        (
+            f"- **Population**: {dataset['population']['selected_key_count']} of "
+            f"{dataset['population']['qualifying_key_count']} qualifying keys, "
+            f"{dataset['population']['selected_row_count']} of "
+            f"{dataset['population']['source_row_count']} source rows "
+            f"({dataset['population']['excluded_key_count']} keys excluded)"
+        ),
+        f"- **Canonical checksum**: `{real.get('canonical_content_sha256', '')[:16]}`…",
+        f"- **Stockout semantics**: {stockout.get('rule')}",
+        (
+            "- **Observed sales vs unconstrained demand**: metrics and forecasts "
+            "target observed sales; censored demand during stockouts is documented, "
+            "not recovered."
+        ),
+    ]
+    if real.get("repository_commit_sha"):
+        lines.append(
+            f"- **Code revision at generation**: `{real['repository_commit_sha'][:12]}` "
+            f"({real.get('repository_commit_sha_note', '')})"
+        )
+    limitations = report.get("limitations", [])
+    for limitation in limitations[:3]:
+        lines.append(f"- **Limitation**: {limitation}")
+    return "\n".join(lines)
+
+
 def _load_fixture_table():
     from retail_demand_inventory.data import load_canonical_csv
 
@@ -76,9 +145,13 @@ def main() -> None:
         st.markdown(
             "**Source contract vs fixture**: `docs/source-contract.md` documents the audited "
             "**FreshRetailNet-50K** dataset (Dingdong Limited, CC BY 4.0, pinned revision "
-            "`08c1fab7f9257bc73679d415d65d644165d351d4`). That source is **not retained** and was "
-            "**not used** here. This demo runs on the **synthetic development fixture** below."
+            "`08c1fab7f9257bc73679d415d65d644165d351d4`). The charts and numbers below "
+            "come from the **synthetic development fixture**; a verified real-snapshot "
+            "report, when present, is shown separately."
         )
+
+    with st.expander("Real snapshot status (bounded evaluation)", expanded=False):
+        st.markdown(_real_status_text())
 
     skus = report["overall"]["skus"]
     selected_sku = st.selectbox(

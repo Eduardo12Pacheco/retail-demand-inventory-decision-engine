@@ -1,8 +1,10 @@
 # Source Contract — retail-demand-inventory-decision-engine
 
-Status: **audited / ACCEPTED with conditions** (audit date 2026-08-11).
-Source data is NOT retained in this repository. The offline prototype runs on
-the committed synthetic fixture only (see [Synthetic fixture](#synthetic-fixture-not-an-audited-source-result)).
+Status: **audited / ACCEPTED with conditions; real snapshot acquired, verified,
+and evaluated on a bounded population** (audit + acquisition date 2026-08-11).
+Source data is NOT retained in this repository (raw files live in the
+gitignored `data/raw/`). Offline development/tests/demo run on the committed
+synthetic fixture (see [Synthetic fixture](#synthetic-fixture-not-an-audited-source-result)).
 
 ## Purpose
 
@@ -29,6 +31,76 @@ satisfied and documented BEFORE code touches real source data.
 | Technical report | arXiv:2505.16319 (https://arxiv.org/abs/2505.16319) |
 | Baseline repo | https://github.com/Dingdong-Inc/frn-50k-baseline (reference only, not copied) |
 | Size | 4,850,000 rows (train 4.5M / eval 350k), ~115 MB |
+
+### Evidence URLs (exact, pinned)
+
+| Resource | URL |
+| --- | --- |
+| Dataset page | https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K |
+| Pinned tree | https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/tree/08c1fab7f9257bc73679d415d65d644165d351d4 |
+| Pinned README | https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/raw/08c1fab7f9257bc73679d415d65d644165d351d4/README.md |
+| Train resolve URL | https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/resolve/08c1fab7f9257bc73679d415d65d644165d351d4/data/train.parquet |
+| Eval resolve URL | https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/resolve/08c1fab7f9257bc73679d415d65d644165d351d4/data/eval.parquet |
+
+### Acquired raw files (local, gitignored) — observed vs HF metadata
+
+The raw files are kept ONLY under `data/raw/` (gitignored, never committed).
+Observed sizes and SHA-256 were computed over the untouched downloaded bytes;
+the expected values are the HF LFS metadata reported at the pinned revision.
+Both files matched exactly, and the resolve endpoint reported
+`x-repo-commit == 08c1fab7…` at download time.
+
+| Split | Local file (under `data/raw/`) | Rows | Expected size (HF) | Observed size | Expected SHA-256 (HF LFS) | Observed SHA-256 |
+| --- | --- | --- | --- | --- | --- | --- |
+| train | `freshretailnet-08c1fab7f9257bc73679d415d65d644165d351d4-train.parquet` | 4,500,000 | 106,436,287 | 106,436,287 | `6706832db892bbae4969c19d87e07975d2543d2ba7d7d4756360654785de5a3d` | `6706832db892bbae4969c19d87e07975d2543d2ba7d7d4756360654785de5a3d` |
+| eval | `freshretailnet-08c1fab7f9257bc73679d415d65d644165d351d4-eval.parquet` | 350,000 | 8,440,124 | 8,440,124 | `1b118840664280c6b88bffc84c80ee1f54c05d911e354b7599e5da1095e960e` | `1b118840664280c6b88bffc84c80ee1f54c05d911e354b7599e5da1095e960e` |
+
+All expected and observed values are recorded in
+`data/manifests/freshretailnet-real.json` (committed). Verification is
+re-runnable offline with:
+
+```bash
+uv run python -m retail_demand_inventory.data.acquisition \
+    --manifest data/manifests/freshretailnet-real.json \
+    --output-dir data/raw --mode verify
+```
+
+## Schema findings (from the actual parquet bytes)
+
+- `train.parquet` and `eval.parquet` expose the exact 19 columns documented in
+  the pinned README, with these types (verified against the bytes):
+  `city_id int64, store_id int64, management_group_id int64, first_category_id
+  int64, second_category_id int64, third_category_id int64, product_id int64,
+  dt string, sale_amount double, hours_sale list<double>, stock_hour6_22_cnt
+  int32, hours_stock_status list<int64>, discount double, holiday_flag int32,
+  activity_flag int32, precpt double, avg_temperature double, avg_humidity
+  double, avg_wind_level double`.
+- Minor discrepancy: the README's Python-feature spec describes
+  `hours_stock_status` as `sequence(int32)`, but the parquet bytes carry
+  `list<int64>`. The loader does not consume that column; it is preserved raw
+  for audit only.
+- Both files have zero nulls in the used columns (`store_id`, `product_id`,
+  `dt`, `sale_amount`, `first_category_id`, `stock_hour6_22_cnt`).
+- All 50,000 store-product keys appear in both splits; every key has exactly
+  97 daily rows covering `2024-03-28 → 2024-07-02` with no internal gaps.
+- `sale_amount` is a non-negative continuous float (0.0–49.9 observed), i.e.
+  normalized sales, not an integer count.
+- `stock_hour6_22_cnt` ranges 0–16 (README documents 0–17).
+
+See `data/reports/freshretailnet-real-schema.json` for the deterministic schema
+report over the bounded population.
+
+## Raw vs canonical checksums
+
+- **Raw checksums** are SHA-256 over the untouched parquet bytes (above). They
+  prove byte-identity with the pinned revision.
+- **Canonical-content checksum** is SHA-256 over a deterministic JSON
+  serialization of the canonical records (`sku, date, demand_units, category,
+  stockout_flag`) of the bounded population:
+  `cc7c57e6bd4071e1628e79833869ed7e11d856236c8db5da399fa21955ebd160`.
+  It proves that the loaded canonical table is reproducible from the raw bytes,
+  independent of any file-format details. Real-mode materialization fails if
+  either set of checksums mismatches.
 
 ### Dataset overview (from the official card, verbatim highlights)
 
@@ -114,14 +186,13 @@ re-licenses third-party data.
 
 ## Redistribution / retention decision
 
-- **Do NOT retain source data in this repository.** No `data/raw/` or
-  `data/processed/` files are committed (`data/raw/` and `data/processed/` are
-  gitignored).
-- If source data is ever downloaded for a run, it lives outside the repository
-  (documented path), is recorded in a manifest with SHA256 checksums, and is
-  never pushed.
-- Distribution of the dataset by this project is out of scope; consumers
-  retrieve it from the official pinned revision.
+- **Do NOT commit source data in this repository.** `data/raw/` and
+  `data/processed/` are gitignored; the acquired raw parquet files live under
+  `data/raw/` for audit and are never committed or pushed.
+- The committed `data/manifests/freshretailnet-real.json` records the pinned
+  revision, retrieval date, expected + observed file-level SHA-256 checksums,
+  and the retention decision. Distribution of the dataset by this project is
+  out of scope; consumers retrieve it from the official pinned revision.
 
 ## Source fields used and canonical mapping
 
@@ -137,7 +208,7 @@ avg_temperature, avg_humidity, avg_wind_level`.
 | `store_id` + `product_id` | `sku` | Canonical key `"{store_id}|{product_id}"` (store-product grain; 90-day series per store-product) |
 | `sale_amount` | `demand_units` | Daily sales after **global normalization** (card: "Multiplied by a specific coefficient"). **Continuous non-negative float; NOT an integer count.** |
 | `first_category_id` | `category` | First-level category as the coarse grouping key |
-| `stock_hour6_22_cnt` / `hours_stock_status` | `stockout_flag` | A day is a stockout day when the hourly out-of-stock status indicates exhaustion. Exact derivation to be finalized at ingestion time; see censoring note below |
+| `stock_hour6_22_cnt` | `stockout_flag` | **Finalized direct derivation**: a day is a stockout day iff `stock_hour6_22_cnt > 0` (documented count of out-of-stock hours in 06:00–22:00); validated integer in 0..17; a missing value stays unknown (`None`). **Never inferred from zero sales.** |
 | `discount`, `holiday_flag`, `activity_flag`, `precpt`, `avg_temperature`, `avg_humidity`, `avg_wind_level` | — (reserved) | Retained in the source loader path for future feature work; NOT part of the canonical demand record v1 (optional fields are only added when actually used by a model) |
 
 The `train`/`eval` split shipped by the publisher is **not** used: this project
@@ -166,7 +237,10 @@ hours: when stock runs out, sales cannot rise to meet unconstrained demand.
 FreshRetailNet is specifically a *censored-demand* benchmark (~20% organic
 stockouts). Therefore:
 
-- `stockout_flag` is preserved in canonical data.
+- `stockout_flag` is preserved in canonical data, derived directly from the
+  documented `stock_hour6_22_cnt > 0` field (never from zero sales). Verified
+  on the real bytes: stockout days retain positive sales (partial-hour
+  stockouts), so a zero-sales rule would be wrong for this data.
 - **Forecasts target observed sales, not unconstrained demand.** No claim of
   latent-demand recovery is made in this prototype.
 - Policy simulation treats demand as an exogenous observed series; stockout
@@ -175,13 +249,23 @@ stockouts). Therefore:
 
 ## Checksum and manifest policy
 
-- Every data artifact that is retained (fixture, generated evaluation report)
-  is declared in a committed manifest under `data/manifests/` with a SHA256
-  checksum (see `src/retail_demand_inventory/data/manifests.py`).
-- If real FreshRetailNet data is ever captured, its manifest records the pinned
-  revision, retrieval date, file-level SHA256 checksums, and the decision to
-  keep it out of the repository.
-- Checksums are verified before any loader consumes the artifact.
+- Every data artifact that is retained (fixture, generated evaluation report,
+  real schema report) is declared in a committed manifest under
+  `data/manifests/` with SHA256 checksums
+  (see `src/retail_demand_inventory/data/manifests.py` and
+  `src/retail_demand_inventory/data/real_manifest.py`).
+- The real snapshot manifest (`data/manifests/freshretailnet-real.json`)
+  records: dataset id, pinned revision, source URLs, publisher, license +
+  attribution + citation, access method, raw files (expected sizes, expected
+  HF-LFS SHA-256, observed sizes, observed SHA-256), canonicalization
+  version/rule, canonical-content SHA-256, schema report path, stockout
+  derivation version/rule, and five explicit gates
+  (`source_verified`, `license_verified`, `snapshot_verified`,
+  `schema_verified`, `stockout_semantics_verified`). All five gates are true.
+- **Missing observed checksums FAIL real-mode verification** (no silent pass);
+  the optional-checksum behavior exists only for the synthetic fixture.
+- Checksums are verified before any loader consumes the artifact; real-mode
+  materialization additionally verifies the canonical-content checksum.
 
 ## Synthetic fixture — NOT an audited-source result
 
@@ -192,18 +276,35 @@ development, tests, and the demo. It is styled after the audited source's grain
 **not derived from, sampled from, or representative of FreshRetailNet-50K**.
 No number produced from it is a real-world result.
 
+## Remaining limitations (real snapshot)
+
+- The evaluation runs on a **deterministic bounded population** (first 10
+  store-product keys under the documented rule), not the full 50,000-key
+  snapshot; it is labeled
+  `Deterministic bounded evaluation over pinned snapshot` and does not
+  generalize to other keys, periods, or retailers.
+- `demand_units` is **observed sales**; censored demand during stockouts is
+  documented, not recovered.
+- Forecasts use only lags, rolling statistics, and calendar features;
+  discount/holiday/activity/weather covariates are not consumed yet.
+- Raw parquet bytes are retained locally in gitignored `data/raw/` for audit;
+  they are never committed and never redistributed by this project.
+
 ## Acceptance
 
 - [x] Candidate dataset listed with source URL, pinned revision, and retrieval date (2026-08-11).
-- [x] License terms (CC BY 4.0) documented verbatim with legal-code link and permitted-use statement.
-- [x] Required source properties verified against the official card (grain, demand signal, history length, calendar, missingness, versioning).
+- [x] License terms (CC BY 4.0) documented verbatim with legal-code link, attribution, and permitted-use statement.
+- [x] Required source properties verified against the official card and against the actual parquet bytes (grain, demand signal, history length, calendar, missingness, versioning).
 - [x] Canonical mapping, missingness/filtering/transformation rules, and stockout censoring documented above.
-- [x] Checksum/manifest policy defined.
+- [x] Raw files acquired from the pinned revision; exact sizes and raw SHA-256 observed and recorded (match HF LFS metadata).
+- [x] Schema verified against the bytes; schema report committed under `data/reports/freshretailnet-real-schema.json`.
+- [x] Stockout derivation finalized as `stock_hour6_22_cnt > 0` and verified on real bytes (never from zero sales).
+- [x] Canonical-content SHA-256 computed and recorded; raw-vs-canonical checksum distinction documented.
+- [x] Checksum/manifest policy defined and enforced for real snapshots.
 - [x] Synthetic fixture committed under `data/fixtures/` and clearly labeled.
 
-**Acceptance status: ACCEPTED with conditions.** The contract is satisfied for
-methodology development on the synthetic fixture. **Real-data ingestion
-remains BLOCKED** until: (1) the pinned revision is downloaded and file-level
-checksums are recorded in `data/manifests/`, (2) the stockout-day derivation
-rule is finalized against the real `hours_stock_status` bytes, and (3) the
-retention decision is re-confirmed. None of those steps have happened.
+**Acceptance status: ACCEPTED with conditions.** Methodology development on the
+synthetic fixture and a **deterministic bounded evaluation on the pinned real
+snapshot** (10 of 50,000 keys) are both implemented and reproducible. The real
+evaluation remains **bounded** by design; no full-dataset, production, or
+generalization claim is made.
