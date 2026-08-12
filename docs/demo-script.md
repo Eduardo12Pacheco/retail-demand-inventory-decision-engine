@@ -3,6 +3,43 @@
 Status: **implemented** — fixture-default and offline; real-snapshot modes are
 shown only when a verified real report exists, and are never relabeled.
 
+Live screenshots of the app are committed under `docs/assets/publication/`.
+
+## Quick walkthrough (60–90 s)
+
+Run the app, then narrate this flow in order:
+
+1. **0–10 s — data mode and scope.** The title is followed by the red banner
+   `Synthetic fixture — not a real business result` and the expanded
+   **Experiment status** panel: data source, license, checksum, seed, package /
+   protocol / schema versions, and the source-contract-vs-fixture note. The
+   **Real snapshot status** panel is collapsed (bounded evaluations live
+   there).
+2. **10–30 s — forecasting.** Pick a SKU from the selectbox. The
+   **Demand history and forecasts** chart shows observed demand, the selected
+   model's final-test forecast vs actual, and the deployment forecast. The
+   **Error metrics** table shows out-of-sample MAE / RMSE / WMAPE / MASE.
+3. **30–45 s — policy simulation.** **Policy comparison** lists every simulated
+   candidate policy (service level, fill rate, stockouts, total cost) with the
+   selected one marked, on the last validation fold only.
+4. **45–60 s — recommendation and evidence.** The **Recommendation** block
+   states the selected policy, order quantity, simulated service / fill /
+   cost, and the **evidence run ID** (`recommendation_run_id`), plus the
+   demand-scale sensitivity table.
+5. **60–80 s — robustness.** Open **Robustness (sensitivity over modeled
+   business assumptions)**: the panel states the modeled-assumption and
+   bounded-scope notices, then the **scenario selector** (12 frozen scenarios)
+   drives the baseline-vs-scenario comparison. Because the demo SKU is a
+   fixture SKU, the panel honestly shows scenario-level stability across the
+   bounded real v2 population (e.g., 100 keys, policy retention %) instead of a
+   per-key real comparison.
+6. **80–90 s — limitations.** Close with the **Assumptions and limitations**
+   list and the explicit synthetic label.
+
+Closing line to use: the default demo is a synthetic fixture, not a real
+business result; the real evaluations are deterministic, bounded to their
+populations, and do not generalize.
+
 ## What the demo shows
 
 A Streamlit app over committed files. The user picks a SKU and sees:
