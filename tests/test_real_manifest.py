@@ -1,5 +1,3 @@
-"""Real snapshot manifest: metadata, gates, checksum rules, revisions."""
-
 from __future__ import annotations
 
 import json

@@ -1,5 +1,3 @@
-"""Materializer: determinism, report structure, checksum gate, demo constraints."""
-
 from __future__ import annotations
 
 import importlib.util
@@ -96,7 +94,6 @@ def test_final_test_never_leaks_into_selection(tmp_path, paths) -> None:
     protocol = data["protocol"]
     assert protocol["final_test_periods"] == 14
     assert protocol["horizon"] == 7
-    # selection rule explicitly excludes the final test
     assert "final test excluded" in protocol["model_selection_rule"]
 
 
@@ -107,7 +104,7 @@ def test_demo_module_imports_without_streamlit() -> None:
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # no streamlit at import time
+    spec.loader.exec_module(module)
     assert "streamlit" not in sys.modules
 
 

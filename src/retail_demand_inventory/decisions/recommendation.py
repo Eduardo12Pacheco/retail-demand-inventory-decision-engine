@@ -1,18 +1,3 @@
-"""Replenishment recommendations built from scored simulations.
-
-Candidate policies are generated deterministically from per-SKU demand
-statistics with documented heuristics (mean and standard deviation of daily
-demand, lead time, review period). Every candidate is scored by the simulator
-on the protocol's policy-evaluation window (observed validation demand; the
-final test is never used for selection). The selected policy is then simulated
-on the deployment forecast to size the immediate order and expected outcomes,
-and sensitivity is reported by re-simulating on demand scaled by
-{0.9, 1.0, 1.1}.
-
-No policy here is claimed optimal; generation is a documented heuristic and
-selection follows docs/evaluation-protocol.md.
-"""
-
 from __future__ import annotations
 
 import math
@@ -35,8 +20,6 @@ from .ranking import PolicyCandidate, SelectionResult
 
 @dataclass(frozen=True)
 class DemandStats:
-    """Per-SKU daily demand statistics used for candidate generation."""
-
     mean_daily: float
     std_daily: float
     n_days: int
@@ -51,8 +34,6 @@ class DemandStats:
 
 @dataclass(frozen=True)
 class Recommendation:
-    """Final replenishment recommendation with full evidence."""
-
     sku: str
     category: str | None
     forecast_model_id: str
@@ -125,13 +106,6 @@ def generate_candidates(
     lead_time_days: int,
     review_period_days: int,
 ) -> tuple[Policy, ...]:
-    """Deterministic heuristic candidate set (documented, not tuned per SKU).
-
-    Coverage base is `mean_daily * (lead_time + review_period)`. ROP-Q sweeps
-    the reorder point across multipliers of that base with a fixed order
-    quantity; OrderUpTo sweeps order-up-to levels across multipliers plus a
-    safety term `z * std_daily * sqrt(lead_time + review_period)`.
-    """
     base = stats.mean_daily * (lead_time_days + review_period_days)
     order_qty = max(
         1.0, _round2(stats.mean_daily * (lead_time_days + review_period_days))
@@ -166,7 +140,6 @@ def simulate_candidates(
     seed: int,
     demand_source: DemandSource,
 ) -> tuple[PolicyCandidate, ...]:
-    """Score every policy on the same demand window; returns ranked inputs."""
     candidates: list[PolicyCandidate] = []
     for policy in policies:
         outcome = simulate(
@@ -207,12 +180,6 @@ def build_recommendation(
     limitations: Sequence[str],
     generated_at: str,
 ) -> Recommendation:
-    """Assemble the recommendation for the selected policy.
-
-    The selected policy is simulated on the deployment forecast to size the
-    immediate order and expected outcomes; sensitivity re-simulates it on the
-    forecast scaled by {0.9, 1.0, 1.1}.
-    """
     selected = selection_result.selected
     selected_policy = _policy_from_params(selected.policy_id, selected.policy_params)
 

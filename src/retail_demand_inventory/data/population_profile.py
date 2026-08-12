@@ -1,22 +1,3 @@
-"""Deterministic resource profile for the expanded real population (v2).
-
-Command:
-
-    python -m retail_demand_inventory.data.population_profile \\
-        --manifest data/manifests/freshretailnet-real.json \\
-        --raw-dir data/raw \\
-        --report data/reports/freshretailnet-real-population-profile-v2.json
-
-This is a DRY-RUN / profile command: it verifies the source manifest gates and
-raw checksums, scans only the metadata needed for selection (per-key date spans
-from the two splits), applies the frozen v2 rule, and writes a deterministic
-profile report. It never computes forecast/policy metrics and never touches
-`data/evaluations/`. Runtime and memory figures are documented constants (the
-report is byte-identical across reruns). When `--population-manifest` is given,
-the profile also loads and structurally validates the committed population
-manifest against the source.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -68,7 +49,6 @@ def build_population_profile(
     target_keys: int = TARGET_POPULATION_KEYS,
     population_manifest_path: Path | None = None,
 ) -> Path:
-    """Compute and write the deterministic population profile (dry-run only)."""
     source = load_real_manifest(manifest_path)
     source.require_gates()
     source.require_raw_ok(raw_dir)

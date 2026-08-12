@@ -1,9 +1,3 @@
-"""Retail demand, inventory, and replenishment decision engine.
-
-Prototype implementation on a synthetic fixture. All reported numbers come
-from committed synthetic data; nothing here is a real-world result.
-"""
-
 from __future__ import annotations
 
 from . import data, decisions, evaluation, forecasting, simulation

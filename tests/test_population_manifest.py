@@ -1,5 +1,3 @@
-"""Population manifest (v2): validation, generation, and key-list checksums."""
-
 from __future__ import annotations
 
 import json
@@ -133,12 +131,12 @@ def test_population_manifest_canonical_checksum_is_canonical(tmp_path) -> None:
 def test_population_manifest_validation_rejects_tampering(tmp_path) -> None:
     _raw, _manifest_path, population = _setup(tmp_path)
     payload = population.to_dict()
-    payload["selected_key_count"] = 99  # inconsistent with the 4 listed keys
+    payload["selected_key_count"] = 99
     problems = PopulationManifest.from_dict(payload).validate()
     assert any("selected_key_count" in p for p in problems)
 
     payload = population.to_dict()
-    payload["seed"] = 1  # no sampling allowed
+    payload["seed"] = 1
     problems = PopulationManifest.from_dict(payload).validate()
     assert any("seed" in p for p in problems)
 

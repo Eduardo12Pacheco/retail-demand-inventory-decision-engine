@@ -1,15 +1,3 @@
-"""Feature construction for the supervised forecaster.
-
-Only two families of features are allowed (see docs/evaluation-protocol.md):
-
-1. Calendar features derived purely from the target date (day-of-week,
-   day-of-month, month, day-of-year, weekend flag). These are deterministic
-   for future dates, so no future-feature leakage is possible.
-2. Lag and rolling statistics over observed (or already-predicted) demand.
-
-No external future covariates (holiday, discount, weather) are used.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -25,7 +13,6 @@ CALENDAR_FEATURES = (
 
 
 def calendar_features(when: date) -> dict[str, float]:
-    """Deterministic calendar features for a date."""
     return {
         "day_of_week": float(when.weekday()),
         "day_of_month": float(when.day),
@@ -51,10 +38,6 @@ def build_feature_row(
     max_lag: int,
     windows: Sequence[int],
 ) -> dict[str, float]:
-    """Build one feature vector from the demand series observed so far.
-
-    `values` must contain at least `max(max_lag, max(windows))` elements.
-    """
     if len(values) < max(max_lag, *windows):
         raise ValueError(
             f"not enough history for features: need >= {max(max_lag, *windows)}, got {len(values)}"
@@ -79,13 +62,6 @@ def build_supervised_dataset(
     max_lag: int,
     windows: Sequence[int],
 ) -> tuple[list[str], list[list[float]], list[float]]:
-    """Build (names, X, y) supervised samples.
-
-    Sample t uses the demand observed *before* date t (lags and rolling stats)
-    plus date t's calendar features to predict demand at date t. The first
-    `max(max_lag, max(windows))` dates have no complete feature history and are
-    skipped.
-    """
     names = feature_names(max_lag, windows)
     offset = max(max_lag, *windows)
     rows: list[list[float]] = []

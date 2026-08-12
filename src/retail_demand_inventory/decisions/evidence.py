@@ -1,11 +1,3 @@
-"""Evidence bundle attaching a recommendation to its reproducible inputs.
-
-Every recommendation must be traceable to: the dataset manifest, the forecast
-model and its version, the backtest/final-test report paths, the simulation
-run IDs that scored every candidate and the sensitivity runs, and the
-package/schema/protocol versions that produced it.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -15,15 +7,15 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class EvidenceBundle:
     dataset_manifest: Mapping[str, object]
-    source_label: str  # "synthetic-fixture" | "audited-source"
-    forecast_models: tuple[Mapping[str, str], ...]  # {model_id, model_version}
+    source_label: str
+    forecast_models: tuple[Mapping[str, str], ...]
     selected_model_id: str
     selected_model_version: str
     backtest_report_path: str
     final_test_report_path: str | None
-    selection_run_ids: Mapping[str, str]  # policy_id -> run_id (selection window)
+    selection_run_ids: Mapping[str, str]
     recommendation_run_id: str
-    sensitivity_run_ids: Mapping[str, str]  # scale -> run_id
+    sensitivity_run_ids: Mapping[str, str]
     package_version: str
     schema_version: str
     protocol_version: str

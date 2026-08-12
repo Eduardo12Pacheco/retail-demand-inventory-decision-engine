@@ -1,19 +1,3 @@
-"""Canonical validated demand data model.
-
-`DemandRecord` is the smallest demand observation: one SKU on one day with an
-observed (continuous, non-negative) demand value in canonical units. Optional
-fields are only present when the source provides them; absence is encoded as
-`None`, never as a fabricated value.
-
-`DemandTable` is an immutable, validated collection of records, sorted by
-`(sku, date)`, with strict daily cadence per SKU by default.
-
-Validation covers: missing required values, invalid/absent SKU, impossible
-dates, non-finite or negative demand, duplicate `(sku, date)` keys,
-timestamp ordering, and daily-frequency consistency. `validate_records`
-returns every issue it finds; `DemandTable.from_records` raises on any issue.
-"""
-
 from __future__ import annotations
 
 import math
@@ -24,12 +8,10 @@ from datetime import date, timedelta
 
 
 class DataValidationError(ValueError):
-    """Raised when demand records fail canonical validation."""
+    pass
 
 
 class ValidationIssue(Exception):
-    """Base class for a single canonical validation problem."""
-
     def __init__(self, message: str) -> None:
         super().__init__(message)
         self.message = message
@@ -39,56 +21,43 @@ class ValidationIssue(Exception):
 
 
 class MissingValueIssue(ValidationIssue):
-    """A required field is missing."""
+    pass
 
 
 class InvalidSkuIssue(ValidationIssue):
-    """The SKU is absent or blank."""
+    pass
 
 
 class InvalidDateIssue(ValidationIssue):
-    """The date is not a valid calendar date."""
+    pass
 
 
 class NegativeDemandIssue(ValidationIssue):
-    """Demand is negative."""
+    pass
 
 
 class NonFiniteDemandIssue(ValidationIssue):
-    """Demand is NaN or infinite."""
+    pass
 
 
 class NumericRangeIssue(ValidationIssue):
-    """A numeric value is outside its documented range."""
+    pass
 
 
 class DuplicateKeyIssue(ValidationIssue):
-    """The (sku, date) key appears more than once."""
+    pass
 
 
 class TimestampOrderingIssue(ValidationIssue):
-    """Dates are not strictly increasing within a SKU."""
+    pass
 
 
 class DailyCadenceIssue(ValidationIssue):
-    """Consecutive dates within a SKU are not exactly one day apart."""
+    pass
 
 
 @dataclass(frozen=True)
 class DemandRecord:
-    """One canonical demand observation for a SKU on a day.
-
-    Attributes:
-        sku: Canonical store-product identifier, non-empty string.
-        date: Calendar date of the observation.
-        demand_units: Observed sales/demand in canonical units. Continuous
-            non-negative float; FreshRetailNet's `sale_amount` is globally
-            normalized and is NOT an integer count.
-        category: Optional coarse grouping key (e.g. first-level category).
-        stockout_flag: Optional source annotation that the day contained a
-            stockout. Absent (`None`) means the source did not annotate it.
-    """
-
     sku: str
     date: date
     demand_units: float
@@ -133,7 +102,6 @@ def _validate_record(record: DemandRecord, index: int) -> Iterator[ValidationIss
 def validate_records(
     records: Sequence[DemandRecord], *, require_daily_cadence: bool = True
 ) -> tuple[ValidationIssue, ...]:
-    """Return every validation issue in `records`, in deterministic order."""
     issues: list[ValidationIssue] = []
     for index, record in enumerate(records):
         issues.extend(_validate_record(record, index))
@@ -154,8 +122,6 @@ def validate_records(
         by_sku.setdefault(record.sku, []).append(record)
 
     for sku in sorted(by_sku):
-        # Timestamp ordering is checked against INPUT order: a canonical table
-        # must arrive sorted, so out-of-order input is a real error.
         prev: date | None = None
         for record in by_sku[sku]:
             if prev is not None and record.date <= prev:
@@ -165,7 +131,6 @@ def validate_records(
                     )
                 )
             prev = record.date
-        # Daily cadence is checked on the sorted series.
         ordered = sorted(by_sku[sku], key=lambda r: r.date)
         prev = None
         for record in ordered:
@@ -187,8 +152,6 @@ def validate_records(
 
 @dataclass(frozen=True)
 class DemandTable:
-    """Immutable validated demand observations for one or more SKUs."""
-
     records: tuple[DemandRecord, ...]
 
     @classmethod
@@ -196,9 +159,6 @@ class DemandTable:
         cls, records: Iterable[DemandRecord], *, require_daily_cadence: bool = True
     ) -> DemandTable:
         raw = tuple(records)
-        # Sort first (tolerant normalization); validation then runs on the
-        # canonical order. `validate_records` remains strict on input order
-        # for callers that need to reject out-of-order sources.
         ordered = tuple(sorted(raw, key=lambda r: (r.sku, r.date)))
         issues = validate_records(ordered, require_daily_cadence=require_daily_cadence)
         if issues:
@@ -221,7 +181,6 @@ class DemandTable:
         return any(r.sku == sku for r in self.records)
 
     def series_for(self, sku: str) -> tuple[DemandRecord, ...]:
-        """All records for `sku`, sorted by date."""
         return tuple(r for r in self.records if r.sku == sku)
 
     def category_for(self, sku: str) -> str | None:
@@ -237,7 +196,6 @@ class DemandTable:
         return min(dates), max(dates)
 
     def daily_series(self, sku: str) -> tuple[tuple[date, float], ...]:
-        """Consecutive `(date, demand_units)` pairs for `sku`."""
         return tuple((r.date, r.demand_units) for r in self.series_for(sku))
 
     @property
@@ -255,7 +213,6 @@ class DemandTable:
         return cls.from_records(combined)
 
     def slice_between(self, sku: str, start: date, end: date) -> DemandTable:
-        """Records for `sku` with `start <= date <= end`."""
         return DemandTable.from_records(
             r for r in self.series_for(sku) if start <= r.date <= end
         )
@@ -268,12 +225,10 @@ class DemandTable:
 
 
 def all_dates(records: Iterable[DemandRecord]) -> tuple[date, ...]:
-    """Sorted unique dates across records."""
     return tuple(sorted({r.date for r in records}))
 
 
 def date_range_days(start: date, end: date) -> tuple[date, ...]:
-    """Every calendar day from `start` to `end` inclusive."""
     if end < start:
         raise ValueError("end before start")
     return tuple(start + timedelta(days=i) for i in range((end - start).days + 1))

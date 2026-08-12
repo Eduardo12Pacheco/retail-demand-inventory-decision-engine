@@ -1,61 +1,69 @@
 # Retail Demand — Inventory Decision Engine
 
-**Demand forecasting, inventory policy simulation, and replenishment decisions
-with reproducible, evidence-backed results** — from an audited demand snapshot
-to a recommended policy that is then stress-tested under modeled business
-scenarios.
+**Pronóstico de demanda, simulación de políticas de inventario y decisiones de
+reposición con resultados reproducibles y respaldados por evidencia** — desde un
+snapshot de demanda auditado hasta una política recomendada que luego se
+somete a pruebas de estrés bajo escenarios de negocio modelados.
 
-**Status**: implementation complete; synthetic fixture is the default demo;
-deterministic bounded evaluations over the pinned real snapshot (v1 and v2) and
-a 12-scenario robustness analysis are committed as evidence.
+**Estado**: implementación completa; el fixture sintético es la demo por
+defecto; las evaluaciones deterministas acotadas sobre el snapshot real fijado
+(v1 y v2) y un análisis de robustez de 12 escenarios están comprometidas como
+evidencia.
 
-![Inventory overview: experiment status and data-mode labels](docs/assets/publication/inventory-overview.png)
+![Vista general de inventario: estado del experimento y etiquetas de modo de datos](docs/assets/publication/inventory-overview.png)
 
-> **IMPORTANT — what is fact and what is assumed.** Demand values come from an
-> **audited source snapshot** (FreshRetailNet-50K, pinned revision). Everything
-> else — **lead times, service targets, review periods, and cost multipliers** —
-> is a **modeled assumption**, not an observed cost or contract. The real
-> evaluations are **deterministic and bounded to their stated populations and do
-> not generalize**. The default demo and fixture report are
+> **IMPORTANTE — qué es un hecho y qué es un supuesto.** Los valores de demanda
+> provienen de un **snapshot de fuente auditado** (FreshRetailNet-50K, revisión
+> fijada). Todo lo demás — **tiempos de entrega, objetivos de servicio,
+> períodos de revisión y multiplicadores de costo** — es un **supuesto modelado**,
+> no un costo o contrato observado. Las evaluaciones reales son
+> **deterministas y acotadas a sus poblaciones declaradas y no generalizan**. La
+> demo por defecto y el reporte de fixture son
 > **`Synthetic fixture — not a real business result`**.
 
-## Verified results (scoped, with denominators)
+## Resultados verificados (acotados, con denominadores)
 
-| Result | Scope / denominator | Where |
+| Resultado | Alcance / denominador | Dónde |
 |---|---|---|
-| **Synthetic fixture** is the default demo, offline, labeled `Synthetic fixture — not a real business result` | 2 SKUs, ~120 days, MIT-licensed synthetic content (not derived from source data) | `data/evaluations/experiment_report.json` |
-| **Real v1 baseline** — `Deterministic bounded evaluation over pinned snapshot` | first 10 of 50,000 qualifying keys by `(store_id, product_id)`; 970 of 4,850,000 source rows | `data/evaluations/freshretailnet-real-report.json` |
-| **Real v2 expanded** — `Deterministic expanded bounded evaluation over pinned snapshot` | 100 keys / 10 stores / 40 products; 9,000 train + 700 eval rows (9,700) from a 4,850,000-row source snapshot | `data/evaluations/freshretailnet-real-expanded-report.json` |
-| **Robustness** — `Deterministic robustness evaluation over the v2 population (modeled business assumptions)` | **12 pre-registered frozen scenarios**; policy retained in **≈98.3% (1,081 of 1,100)** non-baseline scenario-key pairs; 1.7% (19) changed; 10.7% (118) infeasible with documented fallback; service constraint met in 89.3% (982) of pairs | `data/evaluations/freshretailnet-robustness-report-v1.0.0.json` |
-| **v2 final-test MAE** (selected model, out of sample, across the 100 keys) | median **0.33**, p25 0.23, p75 0.62, p95 1.58 | v2 report, `expanded.aggregates.final_test_forecast.per_key.mae` |
-| **v2 service constraint** | 87 of 100 keys meet the target service level; 13 below (13 infeasible, transparent fallback) | v2 report, `expanded.aggregates.policy` |
+| **Fixture sintético** es la demo por defecto, offline, etiquetado `Synthetic fixture — not a real business result` | 2 SKUs, ~120 días, contenido sintético con licencia MIT (no derivado de datos de fuente) | `data/evaluations/experiment_report.json` |
+| **Línea base real v1** — `Deterministic bounded evaluation over pinned snapshot` | primeras 10 de 50,000 claves elegibles por `(store_id, product_id)`; 970 de 4,850,000 filas de fuente | `data/evaluations/freshretailnet-real-report.json` |
+| **Real v2 expandido** — `Deterministic expanded bounded evaluation over pinned snapshot` | 100 claves / 10 tiendas / 40 productos; 9,000 train + 700 eval rows (9,700) de un snapshot de fuente de 4,850,000 filas | `data/evaluations/freshretailnet-real-expanded-report.json` |
+| **Robustez** — `Deterministic robustness evaluation over the v2 population (modeled business assumptions)` | **12 escenarios congelados pre-registrados**; política retenida en **≈98,3 % (1,081 de 1,100)** pares escenario-clave no baseline; 1,7 % (19) cambiaron; 10,7 % (118) infactibles con fallback documentado; restricción de servicio cumplida en 89,3 % (982) de los pares | `data/evaluations/freshretailnet-robustness-report-v1.0.0.json` |
+| **MAE de test final v2** (modelo seleccionado, fuera de muestra, en las 100 claves) | mediana **0,33**, p25 0,23, p75 0,62, p95 1,58 | reporte v2, `expanded.aggregates.final_test_forecast.per_key.mae` |
+| **Restricción de servicio v2** | 87 de 100 claves cumplen el nivel de servicio objetivo; 13 por debajo (13 infactibles, fallback transparente) | reporte v2, `expanded.aggregates.policy` |
 
-Nothing here is labeled **optimal**, **production-ready**, **representative**, or
-**universal** — every number is bounded to the population and protocol that
-produced it.
+Nada aquí está etiquetado **óptimo**, **listo para producción**,
+**representativo** o **universal** — cada número está acotado a la población y el
+protocolo que lo produjo.
 
-## Why this exists
+## Por qué existe
 
-Demand forecasts are not replenishment decisions. Forecasting answers *"how much
-will sell?"*; inventory policies answer *"how much should I hold and when should
-I reorder?"*; and neither answer is trustworthy until it is simulated against a
-policy and stress-tested under assumptions that could be wrong. This project
-builds that full chain with **reproducible evidence at every step** — versions,
-seeds, run IDs, checksums, and committed reports — so a reader can verify any
-number instead of trusting it.
+Los pronósticos de demanda no son decisiones de reposición. El pronóstico
+responde *"¿cuánto se venderá?"*; las políticas de inventario responden *"¿cuánto
+debo mantener y cuándo debo reponer?"*; y ninguna respuesta es confiable hasta que
+se simula contra una política y se somete a pruebas de estrés bajo supuestos que
+podrían estar equivocados. Este proyecto construye esa cadena completa con
+**evidencia reproducible en cada paso** — versiones, seeds, run IDs, checksums y
+reportes comprometidos — de modo que un lector pueda verificar cualquier número
+en lugar de confiar en él.
 
-## What it does
+## Qué hace
 
-1. **Validates an audited demand snapshot** into a typed, canonical data layer.
-2. **Forecasts** demand with four models behind one `fit / predict` interface.
-3. **Simulates** daily lost-sales inventory under two policy families.
-4. **Recommends** a policy by *min total cost subject to a service-level target*,
-   attaching evidence (run IDs, versions, report paths) to every decision.
-5. **Stress-tests** the recommendation under a frozen 12-scenario matrix of
-   modeled cost, lead-time, review-period, and demand assumptions.
-6. **Publishes** deterministic JSON reports and an offline demo.
+1. **Valida un snapshot de demanda auditado** en una capa de datos canónica y
+   tipada.
+2. **Pronostica** la demanda con cuatro modelos detrás de una única interfaz
+   `fit / predict`.
+3. **Simula** inventario diario con ventas perdidas bajo dos familias de
+   políticas.
+4. **Recomienda** una política por *costo total mínimo sujeto a un objetivo de
+   nivel de servicio*, adjuntando evidencia (run IDs, versiones, rutas de
+   reporte) a cada decisión.
+5. **Somete a pruebas de estrés** la recomendación bajo una matriz congelada de
+   12 escenarios de supuestos de costo, tiempo de entrega, período de revisión y
+   demanda modelados.
+6. **Publica** reportes JSON deterministas y una demo offline.
 
-## Pipeline at a glance
+## Pipeline de un vistazo
 
 ```mermaid
 flowchart LR
@@ -67,159 +75,186 @@ flowchart LR
   F --> G[evidence-backed report and demo]
 ```
 
-Source facts (the snapshot and its checksums) are kept **separate** from
-forecasts (model outputs), **separate** from modeled assumptions (lead times,
-service targets, costs), **separate** from recommendations (selected policy +
-evidence), and **separate** from robustness evidence (how the decision behaves
-when the modeled assumptions change).
+Los hechos de fuente (el snapshot y sus checksums) se mantienen **separados** de
+los pronósticos (salidas de modelos), **separados** de los supuestos modelados
+(tiempos de entrega, objetivos de servicio, costos), **separados** de las
+recomendaciones (política seleccionada + evidencia) y **separados** de la
+evidencia de robustez (cómo se comporta la decisión cuando cambian los supuestos
+modelados).
 
 ## Demo
 
-`docs/assets/publication/*` are real screenshots of the live app. The demo is
-fixture-default, reads only committed files, and never touches `data/raw/`.
+`docs/assets/publication/*` son capturas de pantalla reales de la aplicación en
+vivo. La demo es fixture-por-defecto, lee solo archivos comprometidos y nunca
+toca `data/raw/`.
 
-| View | What it shows |
+| Vista | Qué muestra |
 |---|---|
-| ![Forecast comparison: observed demand vs final-test and deployment forecasts](docs/assets/publication/forecast-comparison.png) | Demand history, final-test forecast vs actual, deployment forecast, and out-of-sample error metrics |
-| ![Policy simulation: candidate policies and their simulated outcomes](docs/assets/publication/policy-simulation.png) | Every simulated candidate policy with service level, fill rate, stockouts, and total cost |
-| ![Replenishment recommendation with simulated outcomes and sensitivity](docs/assets/publication/replenishment-recommendation.png) | Selected policy, order quantity, simulated service/cost, evidence run ID, and demand-scale sensitivity |
-| ![Robustness analysis: scenario selector and bounded scenario-level stability](docs/assets/publication/robustness-analysis.png) | 12-scenario selector, baseline-vs-scenario comparison, and bounded cross-key retention |
+| ![Comparación de pronóstico: demanda observada vs pronósticos de test final y despliegue](docs/assets/publication/forecast-comparison.png) | Historial de demanda, pronóstico de test final vs real, pronóstico de despliegue y métricas de error fuera de muestra |
+| ![Simulación de políticas: políticas candidatas y sus resultados simulados](docs/assets/publication/policy-simulation.png) | Cada política candidata simulada con nivel de servicio, fill rate, stockouts y costo total |
+| ![Recomendación de reposición con resultados simulados y sensibilidad](docs/assets/publication/replenishment-recommendation.png) | Política seleccionada, cantidad de pedido, servicio/costo simulados, run ID de evidencia y sensibilidad a la escala de demanda |
+| ![Análisis de robustez: selector de escenarios y estabilidad acotada a nivel de escenario](docs/assets/publication/robustness-analysis.png) | Selector de 12 escenarios, comparación baseline-vs-escenario y retención acotada entre claves |
 
-The scenario selector and robustness panel apply to a **fixture SKU that has no
-counterpart in the real report**, so the panel honestly shows scenario-level
-stability across the bounded real v2 population instead of a per-key real
-comparison. Run it with:
+El selector de escenarios y el panel de robustez se aplican a un **SKU de fixture
+que no tiene contraparte en el reporte real**, por lo que el panel muestra
+honestamente la estabilidad a nivel de escenario en la población real v2 acotada
+en lugar de una comparación real por clave. Ejecútela con:
 
 ```bash
 uv sync --dev --extra demo
 uv run --extra demo streamlit run scripts/demo_forecast.py
 ```
 
-## Data and provenance
+## Datos y procedencia
 
-- **Source**: [FreshRetailNet-50K](https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K)
-  (Dingdong Limited), pinned revision
+- **Fuente**: [FreshRetailNet-50K](https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K)
+  (Dingdong Limited), revisión fijada
   [08c1fab7…d351d4](https://huggingface.co/datasets/Dingdong-Inc/FreshRetailNet-50K/tree/08c1fab7f9257bc73679d415d65d644165d351d4),
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/legalcode).
-  Audit, verbatim license, mapping, missingness, and stockout-censoring rules:
+  Auditoría, licencia textual, mapeo, missingness y reglas de censura por
+  stockout:
   [`docs/source-contract.md`](docs/source-contract.md).
-- **Raw files are never committed.** Acquisition verifies byte sizes, raw
-  SHA-256, and the pinned revision before recording checksums in
-  `data/manifests/freshretailnet-real.json`; everything after acquisition runs
-  offline.
-- **Stockout semantics**: derived from the documented `stock_hour6_22_cnt > 0`
-  field; a missing value stays unknown; zero sales never imply a stockout.
-  Forecasts target observed sales; censored demand during stockouts is
-  documented, not recovered.
+- **Los archivos crudos nunca se comprometen.** La adquisición verifica tamaños
+  de bytes, SHA-256 crudo y la revisión fijada antes de registrar checksums en
+  `data/manifests/freshretailnet-real.json`; todo después de la adquisición se
+  ejecuta offline.
+- **Semántica de stockout**: derivada del campo documentado
+  `stock_hour6_22_cnt > 0`; un valor faltante permanece desconocido; ventas cero
+  nunca implican un stockout. Los pronósticos apuntan a las ventas observadas; la
+  demanda censurada durante stockouts se documenta, no se recupera.
 
-## Forecasting
+## Pronóstico
 
-Four models behind one interface (`src/retail_demand_inventory/forecasting/`):
-naive, moving average, simple exponential smoothing, and a supervised
-`HistGradientBoostingRegressor` using only prior lags, rolling statistics, and
-calendar features. Models are selected on **validation folds only** (min pooled
-MAE, tie-break WMAPE then model id); the final test fold is never used for
-selection.
+Cuatro modelos detrás de una interfaz (`src/retail_demand_inventory/forecasting/`):
+naive, moving average, suavizado exponencial simple y un
+`HistGradientBoostingRegressor` supervisado que usa solo lags anteriores,
+estadísticas móviles y características de calendario. Los modelos se seleccionan
+**solo sobre folds de validación** (MAE agrupado mínimo, desempate por WMAPE y
+luego por id de modelo); el fold de test final nunca se usa para la selección.
 
-## Simulation
+## Simulación
 
-A deterministic daily **lost-sales** inventory simulator
-(`src/retail_demand_inventory/simulation/`) for two policy families:
-reorder-point/order-quantity and order-up-to/safety-stock. Every run is
-reproducible (fixed seed) and emits an auditable run ID with policy versions and
-cost components.
+Un simulador de inventario diario determinista con **ventas perdidas**
+(`src/retail_demand_inventory/simulation/`) para dos familias de políticas:
+reorder-point/order-quantity y order-up-to/safety-stock. Cada ejecución es
+reproducible (seed fijo) y emite un run ID auditable con versiones de política y
+componentes de costo.
 
-## Decision and robustness
+## Decisión y robustez
 
-The decision layer (`src/retail_demand_inventory/decisions/`) selects the policy
-that minimizes total simulated cost while meeting the service-level target, with
-a transparent, documented fallback when no candidate satisfies the constraint.
-Robustness ([`docs/robustness-protocol.md`](docs/robustness-protocol.md)) re-runs this pipeline over a
-**frozen 12-scenario matrix** on the v2 population, reporting policy retention,
-order/reorder-point deltas, feasibility, and transition summaries. Scenario
-definitions and modeled assumptions are versioned and checksummed
+La capa de decisión (`src/retail_demand_inventory/decisions/`) selecciona la
+política que minimiza el costo simulado total cumpliendo el objetivo de nivel de
+servicio, con un fallback transparente y documentado cuando ningún candidato
+satisface la restricción. La robustez
+([`docs/robustness-protocol.md`](docs/robustness-protocol.md)) re-ejecuta este
+pipeline sobre una **matriz congelada de 12 escenarios** en la población v2,
+reportando retención de política, deltas de order/reorder-point, factibilidad y
+resúmenes de transición. Las definiciones de escenarios y los supuestos modelados
+están versionados y con checksum
 (`data/manifests/robustness-scenarios-v1.0.0.json`).
 
-## Evaluation
+## Evaluación
 
-The evaluation protocol ([`docs/evaluation-protocol.md`](docs/evaluation-protocol.md)) fixes splits, seed,
-horizon, metrics, the real-population rule, and selection rules *before* any
-number is produced. The real evaluations are labeled
-`Deterministic bounded evaluation over pinned snapshot` (v1) and
-`Deterministic expanded bounded evaluation over pinned snapshot` (v2): they are
-bounded to their stated populations and do not generalize to all retailers.
+El protocolo de evaluación ([`docs/evaluation-protocol.md`](docs/evaluation-protocol.md)) fija
+splits, seed, horizonte, métricas, la regla de población real y las reglas de
+selección *antes* de que se produzca cualquier número. Las evaluaciones reales
+están etiquetadas `Deterministic bounded evaluation over pinned snapshot` (v1) y
+`Deterministic expanded bounded evaluation over pinned snapshot` (v2): están
+acotadas a sus poblaciones declaradas y no generalizan a todos los minoristas.
 
-The committed robustness artifact
-(`data/evaluations/freshretailnet-robustness-report-v1.0.0.json`, ≈19.9 MB
-pretty-printed / ≈10.4 MB compact) is **preserved unchanged**: it intentionally
-retains full per-key candidate, evidence, and provenance detail (12 scenarios ×
-100 keys) for auditability rather than being deduplicated, so its metrics,
-per-key relationships, and deterministic digests stay intact.
+El artefacto de robustez comprometido
+(`data/evaluations/freshretailnet-robustness-report-v1.0.0.json`, ≈19,9 MB
+pretty-printed / ≈10,4 MB compact) se **preserva sin cambios**: retiene
+intencionalmente el detalle completo de candidato, evidencia y procedencia por
+clave (12 escenarios × 100 claves) por auditabilidad en lugar de ser
+deduplicado, de modo que sus métricas, relaciones por clave y resúmenes
+deterministas permanecen intactos.
 
-## Run locally
+## Ejecución local
 
 ```bash
 uv sync --dev
-uv run pytest                 # 214 tests, real behavior, no network
+uv run pytest                 # 214 tests, comportamiento real, sin red
 uv run ruff check .
 uv run ruff format --check .
 uv lock --check
 uv run --extra demo streamlit run scripts/demo_forecast.py
 ```
 
-To regenerate the fixture report (offline): `uv run python -m
-retail_demand_inventory.evaluation.materialize`. Real-snapshot and robustness
-materialization commands are in [`docs/demo-script.md`](docs/demo-script.md) and [`docs/evaluation-protocol.md`](docs/evaluation-protocol.md).
+Para regenerar el reporte de fixture (offline): `uv run python -m
+retail_demand_inventory.evaluation.materialize`. Los comandos de materialización
+de snapshot real y robustez están en
+[`docs/demo-script.md`](docs/demo-script.md) y [`docs/evaluation-protocol.md`](docs/evaluation-protocol.md).
 
-## Architecture
+## Arquitectura
 
 ```text
 src/retail_demand_inventory/
-├── versions.py       # package/schema/protocol version identifiers
-├── data/             # contracts, loaders, real manifests, parquet loader,
-│                     # acquisition + schema-report CLIs, chronological splits
-├── forecasting/      # base interface, baselines, features, models
-├── simulation/       # policies, engine, events, outcomes (daily lost-sales)
-├── decisions/        # recommendation, ranking, evidence, scenarios manifest
-└── evaluation/       # metrics, backtesting, reports, materializer CLIs,
-                      # robustness aggregation + materializer
+├── versions.py
+├── data/
+├── forecasting/
+├── simulation/
+├── decisions/
+└── evaluation/
 ```
 
-## Repository structure
+- `versions.py`: identificadores de versión de paquete/esquema/protocolo.
+- `data/`: contracts, loaders, manifests reales, parquet loader, CLIs de
+  adquisición + schema-report, splits cronológicos.
+- `forecasting/`: interfaz base, baselines, features, models.
+- `simulation/`: policies, engine, events, outcomes (ventas perdidas diarias).
+- `decisions/`: recommendation, ranking, evidence, escenarios manifest.
+- `evaluation/`: metrics, backtesting, reports, CLIs de materializer, agregación
+  de robustez + materializer.
+
+## Estructura del repositorio
 
 ```text
-src/retail_demand_inventory/   # package (src layout)
-tests/                         # pytest; real tests only
-docs/                          # source contract, evaluation/robustness protocol,
-                               # demo script, LinkedIn draft
-docs/assets/publication/       # screenshots of the live demo
-data/fixtures/                 # small versioned fixtures
-data/manifests/                # versioned manifests (sources, population, scenarios)
-data/evaluations/              # committed deterministic evaluation reports
-data/raw/ data/processed/      # gitignored runtime output (never committed)
-deploy/                        # deployment notes (later)
-scripts/demo_forecast.py       # Streamlit demo
+src/retail_demand_inventory/
+tests/
+docs/
+docs/assets/publication/
+data/fixtures/
+data/manifests/
+data/evaluations/
+data/raw/ data/processed/
+deploy/
+scripts/demo_forecast.py
 ```
 
-## Limitations
+- `src/retail_demand_inventory/`: paquete (layout src).
+- `tests/`: pytest; solo tests reales.
+- `docs/`: source contract, protocolo de evaluación/robustez, demo script,
+  borrador de LinkedIn.
+- `docs/assets/publication/`: capturas de pantalla de la demo en vivo.
+- `data/fixtures/`: fixtures versionados pequeños.
+- `data/manifests/`: manifests versionados (fuentes, población, escenarios).
+- `data/evaluations/`: reportes de evaluación deterministas comprometidos.
+- `data/raw/ data/processed/`: salida de ejecución gitignored (nunca
+  comprometida).
+- `deploy/`: notas de despliegue (más adelante).
+- `scripts/demo_forecast.py`: demo de Streamlit.
 
-- Default demo, tests, and fixture report are synthetic
-  (`Synthetic fixture — not a real business result`); no fixture number is a
-  real-world result.
-- Real-snapshot results are deterministic bounded evaluations over the pinned
-  snapshot — not full-dataset, not production, and **not generalizable**.
-- Lead times, service targets, review periods, and cost multipliers are modeled
-  assumptions, not observed costs or contracts; robustness shows how decisions
-  *behave* under those assumptions, it does not validate the assumptions.
-- Robustness applies to the v2 population; per-key comparisons are real only for
-  real v2 keys (the demo uses a fixture SKU and shows bounded scenario-level
-  stability instead).
-- No per-SKU hyperparameter tuning; fixed documented defaults only. Models use
-  lags, rolling statistics, and calendar features — no discount, holiday,
-  activity, or weather features.
+## Limitaciones
 
-## License
+- La demo por defecto, los tests y el reporte de fixture son sintéticos
+  (`Synthetic fixture — not a real business result`); ningún número de fixture es
+  un resultado del mundo real.
+- Los resultados de snapshot real son evaluaciones deterministas acotadas sobre
+  el snapshot fijado — no full-dataset, no producción y **no generalizables**.
+- Los tiempos de entrega, objetivos de servicio, períodos de revisión y
+  multiplicadores de costo son supuestos modelados, no costos o contratos
+  observados; la robustez muestra cómo *se comportan* las decisiones bajo esos
+  supuestos, no valida los supuestos.
+- La robustez se aplica a la población v2; las comparaciones por clave son reales
+  solo para claves reales v2 (la demo usa un SKU de fixture y muestra estabilidad
+  acotada a nivel de escenario en su lugar).
+- Sin ajuste de hiperparámetros por SKU; solo defaults fijos documentados. Los
+  modelos usan lags, estadísticas móviles y características de calendario — sin
+  features de descuentos, festivos, actividad ni clima.
 
-This repository's code is MIT (see `LICENSE`). The referenced dataset
-(FreshRetailNet-50K) retains its own CC BY 4.0 terms; `data/raw/` and
-`data/processed/` are never committed.
+## Licencia
+
+El código de este repositorio es MIT (ver `LICENSE`). El dataset referenciado
+(FreshRetailNet-50K) conserva sus propios términos CC BY 4.0; `data/raw/` y
+`data/processed/` nunca se comprometen.

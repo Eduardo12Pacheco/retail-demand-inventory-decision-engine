@@ -1,10 +1,3 @@
-"""Shared helpers for real-snapshot tests (offline, tiny temporary parquet).
-
-Temp parquet files are built in the full pinned-snapshot schema (all expected
-columns and types) so schema verification exercises the same code path as the
-real 4.85M-row files.
-"""
-
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -67,7 +60,6 @@ _DEFAULTS = {
 
 
 def frn_table(rows) -> pa.Table:
-    """pyarrow table in the full pinned-snapshot schema from list-of-dict rows."""
     arrays = [
         pa.array([row.get(name, _DEFAULTS.get(name)) for row in rows], type=arrow_type)
         for name, arrow_type in zip(FULL_SCHEMA.names, FULL_SCHEMA.types)
@@ -76,7 +68,6 @@ def frn_table(rows) -> pa.Table:
 
 
 def write_split(directory: Path, name: str, rows) -> Path:
-    """Write rows to `directory/{name}.parquet`; returns the path."""
     path = directory / f"{name}.parquet"
     pq.write_table(frn_table(rows), path)
     return path
@@ -92,12 +83,6 @@ def write_expanded_raw(
     start: str = "2024-01-01",
     sale: float = 1.0,
 ) -> list[tuple[int, int]]:
-    """Train (90 days) + eval (7 following days) for `stores*products` keys.
-
-    Mirrors the real snapshot layout: every key appears in train for the first
-    `train_days` and in eval for the next `eval_days`, so the combined span is
-    `train_days + eval_days` consecutive days with no overlap. Returns the keys.
-    """
     keys = [(s, p) for s in range(stores) for p in range(products)]
     d0 = date.fromisoformat(start)
     write_split(directory, "train", daily_rows(keys, start, train_days, sale=sale))
@@ -109,7 +94,6 @@ def write_expanded_raw(
 def daily_rows(
     keys, start: str, n: int, *, sale=1.0, category=1, stock=0
 ) -> list[dict]:
-    """Consecutive daily rows for each (store_id, product_id) key over `n` days."""
     rows: list[dict] = []
     d0 = date.fromisoformat(start)
     for store, product in keys:
@@ -139,7 +123,6 @@ def make_manifest(
     stockout_derivation_version: str = "1",
     observed: bool = True,
 ) -> RealSnapshotManifest:
-    """Build a valid RealSnapshotManifest over the two temp parquet files."""
     train = raw_dir / train_name
     eval_file = raw_dir / eval_name
     raw_dir.mkdir(parents=True, exist_ok=True)

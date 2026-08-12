@@ -1,16 +1,3 @@
-"""Deterministic forecast models: moving average, SES, and a supervised GBDT.
-
-Hyperparameters are fixed, documented defaults; no per-SKU tuning is performed
-(see docs/evaluation-protocol.md). All models are deterministic:
-
-- `MovingAverageForecaster` and `SESForecaster` are closed-form.
-- `HistGradientBoostingForecaster` is a supervised `HistGradientBoostingRegressor`
-  trained on prior lags + rolling statistics + calendar features and produces
-  the horizon via recursive multi-step prediction. Histogram gradient boosting
-  is deterministic for a fixed dataset (no randomness in splits), so two runs
-  with the same history produce identical forecasts.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,8 +18,6 @@ from .predictions import recursive_multistep
 
 @dataclass
 class MovingAverageForecaster(Forecaster):
-    """Flat forecast equal to the mean of the last `window` observations."""
-
     model_id = "moving_average"
     model_version = "1.0"
 
@@ -73,13 +58,6 @@ class MovingAverageForecaster(Forecaster):
 
 @dataclass
 class SESForecaster(Forecaster):
-    """Simple exponential smoothing with a fixed smoothing factor.
-
-    `alpha` is fixed (no optimization on the evaluation window): 0 < alpha < 1.
-    The smoothed level after the training series is the forecast for all
-    future days.
-    """
-
     model_id = "ses"
     model_version = "1.0"
     min_history = 2
@@ -121,14 +99,6 @@ class SESForecaster(Forecaster):
 
 @dataclass
 class HistGradientBoostingForecaster(Forecaster):
-    """Supervised histogram gradient boosting over lags, rolling stats, and calendar features.
-
-    Recursive multi-step: each future prediction is appended to the running
-    series and used as history for the next step. Deterministic configuration:
-    no early stopping, fixed iteration count, fixed learning rate and tree
-    sizes.
-    """
-
     model_id = "hist_gradient_boosting"
     model_version = "1.0"
 

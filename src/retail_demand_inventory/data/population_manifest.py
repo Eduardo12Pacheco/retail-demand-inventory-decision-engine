@@ -1,32 +1,3 @@
-"""Typed population manifest for an expanded deterministic real evaluation.
-
-The v1 real evaluation is `MAX_POPULATION_KEYS = 10` keys with no per-store cap
-and no manifest. The v2 expanded population is opt-in via a committed
-`PopulationManifest` that records, for a FROZEN deterministic selection rule:
-
-- identity: `population_id`, the source manifest id/path it is derived from,
-- provenance: pinned revision, per-raw-file local name/size/SHA-256,
-- the selection rule (eligibility, history requirement, store-diversity cap,
-  target key count) and the resulting counts (candidate/qualifying/eligible/
-  selected/excluded keys and rows, train/eval rows, stores, products),
-- the date range and the train/eval separation facts,
-- selected/excluded key-list checksums and the canonical-content SHA-256,
-- the resource budget (documented constants, not measurements),
-- `seed = null` (no sampling) and `train_metadata_only = true` (selection never
-  reads demand/stockout values), plus generation timestamp and code revision.
-
-The manifest is always GENERATED from code over the actual verified raw bytes
-(`build_population_manifest`); it is never hand-typed. It commits only small
-metadata and key lists; the raw bytes stay in the gitignored `data/raw/`.
-
-Command:
-
-    python -m retail_demand_inventory.data.population_manifest \\
-        --source-manifest data/manifests/freshretailnet-real.json \\
-        --raw-dir data/raw \\
-        --out data/manifests/freshretailnet-real-population-v2.json
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -57,12 +28,6 @@ POPULATION_MANIFEST_VERSION = "1"
 POPULATION_V2_ID = "freshretailnet-real-population-v2"
 SOURCE_MANIFEST_ID = "freshretailnet-real.json"
 
-# Deterministic resource budget (documented constants, not wall-clock
-# measurements). Basis: measured v1 runtime ~87s for 10 keys and measured v2
-# runtime ~83s wall for 100 keys after the shared-backtest optimization; the
-# documented materialization budget is 300s. Measured report size ~4.1MB;
-# memory is tiny (~9,700 canonical records; the parquet reads are
-# column-filtered).
 PROFILE_ESTIMATED_RUNTIME_SECONDS = 3
 MATERIALIZATION_ESTIMATED_RUNTIME_SECONDS = 300
 ESTIMATED_PEAK_MEMORY_BYTES = 8_388_608
@@ -92,7 +57,6 @@ def _deterministic_timestamp() -> tuple[str, str]:
 
 
 def _repo_head() -> tuple[str | None, str]:
-    """HEAD at generation time; never fabricates the eventual commit SHA."""
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -115,15 +79,12 @@ def _repo_head() -> tuple[str | None, str]:
 
 
 def _keys_checksum(keys: Sequence[str]) -> str:
-    """Deterministic SHA-256 over the canonical serialization of a key list."""
     payload = json.dumps(sorted(keys), separators=(",", ":"), ensure_ascii=False) + "\n"
     return sha256_bytes(payload.encode("utf-8"))
 
 
 @dataclass(frozen=True)
 class PopulationManifest:
-    """Everything needed to reproduce one expanded real population (v2)."""
-
     manifest_version: str
     population_id: str
     source_manifest_id: str
@@ -270,7 +231,6 @@ class PopulationManifest:
         }
 
     def validate(self) -> tuple[str, ...]:
-        """Return human-readable problems; empty tuple means valid."""
         problems: list[str] = []
         if not str(self.population_id).strip():
             problems.append("missing or empty field: population_id")
@@ -406,11 +366,6 @@ def build_population_manifest(
     timestamp_source: str | None = None,
     code_revision: str | None = None,
 ) -> PopulationManifest:
-    """Generate the v2 population manifest from the verified raw snapshot.
-
-    Never hand-typed: every count and checksum is derived from the actual raw
-    bytes via the deterministic selection and canonical loader.
-    """
     source = load_real_manifest(source_manifest_path)
     source.require_gates()
     source.require_raw_ok(raw_dir)
@@ -531,7 +486,6 @@ def build_population_manifest(
     )
     manifest.require_valid()
 
-    # Canonical-content SHA-256 for the v2 population (small: ~9,700 records).
     result = load_real_snapshot(
         source,
         raw_dir,

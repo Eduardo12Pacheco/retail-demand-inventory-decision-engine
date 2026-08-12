@@ -1,28 +1,3 @@
-"""Deterministic offline evaluation command.
-
-    uv run python -m retail_demand_inventory.evaluation.materialize [--outdir PATH]
-    uv run python -m retail_demand_inventory.evaluation.materialize \\
-        --source real --manifest data/manifests/freshretailnet-real.json
-    uv run python -m retail_demand_inventory.evaluation.materialize \\
-        --source real --manifest data/manifests/freshretailnet-real.json \\
-        --population data/manifests/freshretailnet-real-population-v2.json
-
-Reads ONLY the committed synthetic fixture (checksum-verified against its
-manifest) and produces a small JSON experiment report under `data/evaluations/`
-by default. `--source real` runs the deterministic bounded evaluation over the
-verified raw snapshot; with `--population` it runs the opt-in expanded (v2)
-population and writes the distinct expanded report. Never downloads network
-data.
-
-Determinism: a fixed seed (`SEED`), fixed protocol parameters, and a
-deterministic execution timestamp (`SOURCE_DATE_EPOCH` when set, otherwise the
-documented fixed value `2026-08-11T00:00:00+00:00`). Two runs with identical
-inputs produce byte-identical reports.
-
-No number in the report is a real-world result: the fixture is synthetic, and
-the real reports are deterministic bounded evaluations over a pinned snapshot.
-"""
-
 from __future__ import annotations
 
 import os
@@ -82,7 +57,6 @@ from .backtesting import (
 from .population_aggregates import build_expanded_section
 from .reports import ExperimentReport, round6
 
-# --- Protocol constants (docs/evaluation-protocol.md) -----------------------
 SEED = 20260811
 HORIZON = 7
 MIN_TRAIN_PERIODS = 42
@@ -120,11 +94,8 @@ REPORT_NAME = "experiment_report.json"
 REAL_REPORT_NAME = "freshretailnet-real-report.json"
 REAL_EXPANDED_REPORT_NAME = "freshretailnet-real-expanded-report.json"
 
-# Real-mode label: this is a bounded evaluation over the pinned snapshot, never
-# a full-dataset result. The exact phrase is echoed in docs and the report.
 REAL_LABEL = "Deterministic bounded evaluation over pinned snapshot"
 
-# Expanded real-mode label (v2, opt-in via a population manifest).
 REAL_EXPANDED_LABEL = "Deterministic expanded bounded evaluation over pinned snapshot"
 
 REAL_ASSUMPTIONS = (
@@ -169,7 +140,6 @@ def _repo_root() -> Path:
 
 
 def _relative_or_abs(path: Path) -> str:
-    """Relative to the repo root when nested inside it, else absolute."""
     try:
         return str(path.resolve().relative_to(_repo_root()))
     except ValueError:
@@ -188,7 +158,6 @@ def _deterministic_timestamp() -> tuple[str, str]:
 
 
 def build_models() -> tuple[Forecaster, ...]:
-    """The fixed, documented model set. Fresh instances each time."""
     return (
         NaiveForecaster(),
         MovingAverageForecaster(window=7),
@@ -217,7 +186,6 @@ def _demand_values(
 def _deployment_forecast(
     table: DemandTable, sku: str, model: Forecaster, horizon: int
 ) -> tuple[tuple[date, ...], tuple[float, ...], str, str]:
-    """Refit `model` on all history and predict the next `horizon` days."""
     fitted = model.fit(table.filter_dates(sku, [r.date for r in table.series_for(sku)]))
     last_date = table.series_for(sku)[-1].date
     start = last_date + timedelta(days=1)
@@ -325,7 +293,7 @@ def _build_sku_section(
         backtest_report_path=report_name,
         final_test_report_path=report_name,
         selection_run_ids={c.policy_id: c.run_id for c in candidates},
-        recommendation_run_id="",  # filled by build_recommendation
+        recommendation_run_id="",
         sensitivity_run_ids={},
         package_version=PACKAGE_VERSION,
         schema_version=SCHEMA_VERSION,
@@ -430,7 +398,6 @@ def _final_test_dict(result: FinalTestResult) -> dict[str, object]:
 
 
 def _repo_commit() -> tuple[str | None, str]:
-    """HEAD at generation time; never fabricates the eventual commit SHA."""
     import subprocess
 
     try:
@@ -515,13 +482,8 @@ def materialize_real(
     raw_dir: Path,
     outdir: Path,
 ) -> Path:
-    """Run the deterministic bounded evaluation over the pinned real snapshot.
-
-    Fails clearly (never falls back to the fixture) if the manifest gates,
-    raw files, raw checksums, or the canonical checksum are not all valid.
-    """
     manifest = load_real_manifest(manifest_path)
-    manifest.require_gates()  # manifest gates checked before any raw access
+    manifest.require_gates()
     manifest.require_raw_ok(raw_dir)
 
     result = load_real_snapshot(
@@ -694,16 +656,8 @@ def materialize_real_expanded(
     raw_dir: Path,
     outdir: Path,
 ) -> Path:
-    """Run the deterministic EXPANDED (v2) evaluation over the pinned snapshot.
-
-    Opt-in via a population manifest: loads exactly the population's selected
-    keys, validates source revision / raw checksums / schema / keys / date
-    spans / canonical checksum against the manifest, and writes the distinct
-    expanded report (`freshretailnet-real-expanded-report.json`). The v1 report
-    is never written by this path.
-    """
     manifest = load_real_manifest(manifest_path)
-    manifest.require_gates()  # manifest gates checked before any raw access
+    manifest.require_gates()
     manifest.require_raw_ok(raw_dir)
     population = load_population_manifest(population_path)
     if population.canonical_content_sha256 is None:
@@ -745,8 +699,6 @@ def materialize_real_expanded(
         evaluation_label=REAL_EXPANDED_LABEL,
     )
 
-    # Backtest once over the whole population and reuse it per SKU: identical
-    # to the per-SKU result, but linear instead of quadratic in key count.
     backtest = run_backtest(table, models, splits.folds, horizon=HORIZON)
 
     per_sku: dict[str, dict[str, object]] = {}
@@ -919,7 +871,6 @@ def materialize(
     manifest_path: Path,
     outdir: Path,
 ) -> Path:
-    """Run the full deterministic pipeline; returns the report path."""
     manifest = load_manifest(manifest_path)
     if not manifest.verify_checksum(fixture_path):
         raise RuntimeError(
@@ -1078,7 +1029,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(SYNTHETIC_NOTICE)
         return 0
 
-    # Real mode: fails clearly on any gate/checksum/raw problem, never falls back.
     manifest = args.manifest or root / "data" / "manifests" / "freshretailnet-real.json"
     raw_dir = args.raw_dir or root / "data" / "raw"
     outdir = args.outdir or root / "data" / "evaluations"

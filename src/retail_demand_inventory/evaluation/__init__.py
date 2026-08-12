@@ -1,5 +1,3 @@
-"""Evaluation: protocol metrics, chronological backtesting, JSON reports."""
-
 from __future__ import annotations
 
 from .backtesting import (

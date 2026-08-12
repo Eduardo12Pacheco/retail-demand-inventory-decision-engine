@@ -1,11 +1,3 @@
-"""Aggregated simulation outcomes.
-
-`SimulationOutcome` bundles the auditable identity of a run (run ID, policy,
-config, demand source, seed) with the daily states, event log, and the
-aggregate performance numbers: service level, fill rate, stockouts, inventory,
-and the three cost components plus total cost.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -21,8 +13,6 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class SimulationOutcome:
-    """Fully traceable result of one simulation run."""
-
     run_id: str
     sku: str
     policy_id: str
@@ -49,7 +39,6 @@ class SimulationOutcome:
     first_order_quantity: float
 
     def summary_dict(self) -> dict[str, object]:
-        """Compact JSON-safe summary (excludes daily states and event log)."""
         return {
             "run_id": self.run_id,
             "sku": self.sku,

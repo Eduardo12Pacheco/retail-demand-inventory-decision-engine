@@ -1,9 +1,3 @@
-"""Workspace scaffold sanity checks.
-
-These tests verify the prepared workspace contract only. They do not
-pretend forecasting, simulation, or decision features exist.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path

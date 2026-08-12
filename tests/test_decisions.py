@@ -1,5 +1,3 @@
-"""Recommendation layer: selection, evidence, traceability, no optimal claims."""
-
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -45,7 +43,7 @@ def test_select_min_cost_among_feasible() -> None:
     candidates = [
         _candidate("a", service_level=0.95, total_cost=100.0, run_id="r1"),
         _candidate("b", service_level=0.92, total_cost=80.0, run_id="r2"),
-        _candidate("c", service_level=0.89, total_cost=10.0, run_id="r3"),  # infeasible
+        _candidate("c", service_level=0.89, total_cost=10.0, run_id="r3"),
     ]
     result = select_policy(candidates, target_service_level=0.90)
     assert result.constraint_satisfied is True
@@ -73,7 +71,7 @@ def test_tie_break_is_deterministic() -> None:
     first = select_policy(candidates, 0.90)
     second = select_policy(candidates, 0.90)
     assert first == second
-    assert first.selected.run_id == "run_aaa"  # lexicographic tie-break
+    assert first.selected.run_id == "run_aaa"
 
 
 def test_empty_candidates_raise() -> None:
@@ -182,10 +180,8 @@ def test_build_recommendation_traceability() -> None:
     assert rec.order_quantity >= 0
     assert rec.simulated_service_level is not None
     assert set(rec.sensitivity) == {"scale_0.9", "scale_1.0", "scale_1.1"}
-    # evidence is filled in by build_recommendation
     assert rec.evidence.recommendation_run_id.startswith("run_")
     assert len(rec.evidence.sensitivity_run_ids) == 3
-    # no optimality claim in any produced string
     for text in (rec.reason, rec.objective, str(rec.policy_params)):
         assert "is optimal" not in text
     assert "constraint" in rec.objective
@@ -244,6 +240,5 @@ def test_sensitivity_varys_with_demand_scale() -> None:
         rec.sensitivity[s]["total_cost"]
         for s in ("scale_0.9", "scale_1.0", "scale_1.1")
     ]
-    # demand scaling changes the simulated outcome (sensitivity has an effect)
     assert costs[0] >= 0 and costs[2] >= 0
     assert costs[0] != costs[2]

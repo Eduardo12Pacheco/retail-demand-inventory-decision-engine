@@ -1,5 +1,3 @@
-"""Deterministic daily lost-sales inventory policy simulation."""
-
 from __future__ import annotations
 
 from .engine import (

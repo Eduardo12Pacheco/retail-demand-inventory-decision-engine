@@ -1,5 +1,3 @@
-"""Chronological backtest: final-test isolation, fallback, selection."""
-
 from __future__ import annotations
 
 from datetime import timedelta
@@ -73,7 +71,7 @@ def test_insufficient_history_falls_back_to_naive(table_factory) -> None:
             tuple(start + timedelta(days=i) for i in range(5, 12)),
         ),
     )
-    models = (MovingAverageForecaster(window=100),)  # needs >= 100 days
+    models = (MovingAverageForecaster(window=100),)
     report = run_backtest(table, models, folds, horizon=7)
     ff = report.folds[0]
     assert ff.insufficient_history is True
@@ -140,7 +138,6 @@ def test_final_test_evaluation_uses_only_pre_test_history(fixture_table) -> None
     assert result.dates == splits.final_test_dates
     assert len(result.actual) == 14
     assert result.metrics["mae"] is not None
-    # naive final test: predicted is flat last value before the test window
     pre_test = [
         v for _, v in fixture_table.daily_series(sku) if _ < splits.final_test_dates[0]
     ]

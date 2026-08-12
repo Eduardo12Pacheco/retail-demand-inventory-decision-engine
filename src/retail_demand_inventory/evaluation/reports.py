@@ -1,14 +1,3 @@
-"""JSON serialization for evaluation reports.
-
-All report payloads are plain JSON-compatible structures (dict/list/str/float/
-int/bool/None). `sanitize` converts numpy scalar types so the report survives
-`json.dumps` unchanged, and `save_json` produces deterministic bytes for fixed
-inputs (sorted keys, fixed indent).
-
-Determinism contract: the same report content always serializes to the same
-bytes, which is what makes materializer runs byte-identical.
-"""
-
 from __future__ import annotations
 
 import json
@@ -19,14 +8,12 @@ from typing import Any
 
 
 def round6(value: float | None) -> float | None:
-    """Round a metric/value to 6 decimals; None stays None."""
     if value is None:
         return None
     return round(float(value), 6)
 
 
 def sanitize(obj: Any) -> Any:
-    """Convert numpy scalars/arrays to plain Python values, recursively."""
     import numpy as np
 
     if isinstance(obj, np.ndarray):
@@ -59,13 +46,6 @@ def load_json(path: Path) -> Any:
 
 @dataclass(frozen=True)
 class ExperimentReport:
-    """Top-level evaluation report produced by the materializer.
-
-    `extra` is an optional mapping merged at the top level of the serialized
-    report. It stays empty for the synthetic fixture report (byte-identical
-    output) and carries the real-snapshot provenance section only in real mode.
-    """
-
     meta: Mapping[str, object]
     dataset: Mapping[str, object]
     protocol: Mapping[str, object]

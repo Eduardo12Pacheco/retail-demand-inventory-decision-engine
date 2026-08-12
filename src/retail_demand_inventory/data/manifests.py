@@ -1,10 +1,3 @@
-"""Dataset manifests and checksums.
-
-Every retained data artifact (fixture, generated report) is declared in a
-committed manifest with a SHA256 checksum and its source/license provenance.
-Consumers verify the checksum before reading the artifact.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +10,6 @@ from typing import Any
 
 
 def sha256_file(path: Path, *, chunk_size: int = 1 << 20) -> str:
-    """Hex SHA256 of a file, streamed in chunks."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while True:
@@ -33,22 +25,15 @@ def sha256_bytes(payload: bytes) -> str:
 
 
 class ManifestError(ValueError):
-    """Raised when a manifest is malformed or fails validation."""
+    pass
 
 
 @dataclass(frozen=True)
 class DatasetManifest:
-    """Provenance and checksum metadata for one retained data artifact.
-
-    `accepted` records whether the artifact was accepted by the source
-    contract. The synthetic fixture manifest is accepted for *methodology
-    development* only and is explicitly not an audited-source result.
-    """
-
     name: str
     source_url: str
     publisher: str
-    retrieval_date: str  # ISO date
+    retrieval_date: str
     dataset_version: str
     license_name: str
     license_url: str
@@ -104,7 +89,6 @@ class DatasetManifest:
         }
 
     def validate(self) -> tuple[str, ...]:
-        """Return human-readable problems; empty tuple means valid."""
         problems: list[str] = []
         for key in (
             "name",
@@ -143,7 +127,6 @@ class DatasetManifest:
             raise ManifestError("; ".join(problems))
 
     def verify_checksum(self, file_path: Path) -> bool:
-        """True if `file_path` matches the recorded checksum (or no checksum recorded)."""
         if self.checksum is None:
             return True
         return sha256_file(file_path) == self.checksum

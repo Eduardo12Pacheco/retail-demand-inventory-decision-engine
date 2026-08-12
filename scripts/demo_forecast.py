@@ -1,18 +1,3 @@
-"""Streamlit demo over the committed synthetic fixture and generated report.
-
-Reads ONLY committed files under data/fixtures/, data/manifests/, and
-data/evaluations/. No network access. Streamlit is imported lazily inside
-`main` so importing this module is safe when the `demo` extra is not installed
-(tests rely on that).
-
-Every number shown is produced from the synthetic fixture. The exact phrase
-`Synthetic fixture — not a real business result` is rendered prominently, and
-the audited source contract is explicitly distinguished from the synthetic
-development fixture.
-
-Run:  uv run --extra demo streamlit run scripts/demo_forecast.py
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -45,7 +30,6 @@ def _load_report() -> dict:
 
 
 def _real_status_text() -> str:
-    """Real-snapshot status from committed files only; never touches data/raw."""
     report_path = ROOT / "data/evaluations" / "freshretailnet-real-report.json"
     manifest_path = ROOT / "data/manifests" / "freshretailnet-real.json"
     if not report_path.exists():
@@ -119,7 +103,6 @@ def _real_status_text() -> str:
 
 
 def _expanded_status_text() -> str:
-    """Expanded (v2) status from committed files only; never touches data/raw."""
     report_path = ROOT / "data/evaluations" / "freshretailnet-real-expanded-report.json"
     if not report_path.exists():
         return ""
@@ -172,7 +155,6 @@ def _expanded_status_text() -> str:
 
 
 def _robustness_report():
-    """Committed robustness report, or None when it does not exist."""
     from retail_demand_inventory.evaluation.reports import load_json
 
     report_path = ROOT / "data/evaluations" / ROBUSTNESS_REPORT_NAME
@@ -182,7 +164,6 @@ def _robustness_report():
 
 
 def _robustness_status_text() -> str:
-    """Robustness status from committed files only; never touches data/raw."""
     report = _robustness_report()
     if report is None:
         return (
@@ -231,7 +212,6 @@ def _robustness_status_text() -> str:
 
 
 def _robustness_comparison_table(sku: str, scenario_id: str) -> dict:
-    """Baseline-v1 vs the chosen scenario for one SKU (deployment window)."""
     report = _robustness_report()
     robustness = report["robustness"]
     scenarios = robustness["scenarios"]
@@ -288,7 +268,6 @@ def _robustness_comparison_table(sku: str, scenario_id: str) -> dict:
 def _robustness_scenario_summary_table(
     sku: str, scenario_id: str, robustness: dict
 ) -> dict:
-    """Bounded scenario-level stability when `sku` has no real-report key."""
     summary = robustness["analysis"]["aggregate"]["per_scenario"][scenario_id]
     return {
         "metric": [
@@ -528,7 +507,6 @@ def main() -> None:
 def _series(
     all_dates: list[str], series_dates: list[str], values: list[float]
 ) -> list[float | None]:
-    """Align a sparse series onto the full date axis (None where absent)."""
     wanted = dict(zip(series_dates, values))
     return [wanted.get(d) for d in all_dates]
 

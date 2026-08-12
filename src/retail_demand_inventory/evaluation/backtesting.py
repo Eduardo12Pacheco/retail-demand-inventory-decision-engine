@@ -1,12 +1,3 @@
-"""Chronological backtesting over validation folds (never the final test).
-
-The backtest evaluates every model on every fold's validation window. The
-final test dates are structurally excluded here — `run_backtest` only ever
-sees fold dates — so model and policy selection (which consume this report)
-cannot touch the final test. `evaluate_final_test` is a separate, opt-in step
-used only AFTER selection, for reporting the chosen model out of sample.
-"""
-
 from __future__ import annotations
 
 import copy
@@ -37,8 +28,6 @@ def _mean(values: Sequence[float]) -> float | None:
 
 @dataclass(frozen=True)
 class FoldForecast:
-    """Per-fold, per-SKU, per-model forecast evaluation."""
-
     fold_index: int
     sku: str
     category: str | None
@@ -85,8 +74,6 @@ class FoldForecast:
 
 @dataclass(frozen=True)
 class ModelSummary:
-    """Aggregate backtest performance of one model over a group of folds."""
-
     model_id: str
     model_version: str
     count: int
@@ -140,7 +127,6 @@ def _mean_fold_metrics(
 
 
 def summarize(fold_forecasts: Sequence[FoldForecast]) -> tuple[ModelSummary, ...]:
-    """Per-model summaries over the given fold forecasts."""
     by_model: dict[str, list[FoldForecast]] = {}
     for ff in fold_forecasts:
         by_model.setdefault(ff.model_id, []).append(ff)
@@ -187,9 +173,6 @@ def grouped_summaries(
 
 
 def select_best_model(summaries: Sequence[ModelSummary]) -> ModelSummary:
-    """Per docs/evaluation-protocol.md: min pooled MAE, tie -> lower WMAPE,
-    tie -> lexicographically smaller model_id. Models with an undefined MAE
-    sort after models with a defined one."""
     if not summaries:
         raise ValueError("cannot select from empty summaries")
 
@@ -294,12 +277,6 @@ def run_backtest(
     *,
     horizon: int,
 ) -> BacktestReport:
-    """Evaluate every model on every fold's validation window.
-
-    `folds` come from data.splits and never contain final-test dates. Each
-    model is refit per fold on a deep copy, so the caller's instances are
-    never mutated.
-    """
     fold_forecasts: list[FoldForecast] = []
     for fold in folds:
         for sku in table.skus:
@@ -323,8 +300,6 @@ def run_backtest(
 
 @dataclass(frozen=True)
 class FinalTestResult:
-    """Out-of-sample evaluation of a selected model on the untouched final test."""
-
     sku: str
     category: str | None
     model_id: str
@@ -366,12 +341,6 @@ def evaluate_final_test(
     model: Forecaster,
     splits: TimeSplits,
 ) -> FinalTestResult:
-    """Refit `model` on all data before the final test and evaluate on it.
-
-    `model` is an unfitted instance; it is refit here on the training slice.
-    Called only AFTER selection; its output is reported, never used for
-    selection.
-    """
     train_dates = [
         d for d, _ in table.daily_series(sku) if d < splits.final_test_dates[0]
     ]

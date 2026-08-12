@@ -1,5 +1,3 @@
-"""Real-mode materializer: gates, no-fallback, provenance, determinism."""
-
 from __future__ import annotations
 
 import json

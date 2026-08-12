@@ -1,38 +1,40 @@
 # AGENTS.md — retail-demand-inventory-decision-engine
 
-## Objective
+## Objetivo
 
-Build demand forecasting, inventory policy simulation, and replenishment
-decisions for retail. Independent, greenfield project. It may learn from the
-baselines in the existing `demand-inventory-optimizer` project, but MUST NOT
-copy its code and MUST NOT claim results yet.
+Construir pronóstico de demanda, simulación de políticas de inventario y
+decisiones de reposición para retail. Proyecto independiente, greenfield. Puede
+aprender de los baselines del proyecto existente `demand-inventory-optimizer`,
+pero NO debe copiar su código.
 
-## Status
+## Estado
 
-Scaffold / implementation not started. No metrics, no claims of results.
+Implementación completa para el alcance declarado, con evaluaciones sintéticas
+y evaluaciones reales acotadas documentadas.
 
-## Boundaries
+## Límites
 
-- Do NOT modify these sibling projects: `ecuador-job-market-intelligence`,
+- NO modificar estos proyectos hermanos: `ecuador-job-market-intelligence`,
   `ecuador-mobility-reliability`, `demand-inventory-optimizer`,
   `ecuador-public-information-evidence-assistant`, `eduardo-github-profile`.
-- Do NOT push, publish, or create GitHub remotes.
-- No corpus/dataset is implemented until its source and license are audited
-  (see `docs/source-contract.md`).
+- La publicación actual ya está configurada en GitHub; no crear nuevos remotes
+  ni hacer push sin autorización explícita del usuario.
+- La fuente y licencia de FreshRetailNet-50K están auditadas y documentadas en
+  `docs/source-contract.md`.
 
-## Structure
+## Estructura
 
 ```text
-src/retail_demand_inventory/   # package under src layout
-tests/                         # pytest; real tests only, no fake coverage
-docs/                          # source contract, evaluation protocol, demo script
-data/fixtures/                 # small versioned fixtures
-data/manifests/                # versioned manifests of captured/processed artifacts
-data/raw/ data/processed/      # gitignored runtime output
-deploy/                        # deployment notes (later)
+src/retail_demand_inventory/   # paquete bajo layout src
+tests/                         # pytest; solo tests reales, sin cobertura falsa
+docs/                          # source contract, protocolo de evaluación, demo script
+data/fixtures/                 # fixtures versionados pequeños
+data/manifests/                # manifests versionados de artefactos capturados/procesados
+data/raw/ data/processed/      # salida de ejecución gitignored
+deploy/                        # notas de despliegue (más adelante)
 ```
 
-## Expected commands
+## Comandos esperados
 
 ```bash
 uv sync --dev
@@ -41,17 +43,19 @@ uv run ruff check .
 uv run --extra demo streamlit run scripts/demo_forecast.py
 ```
 
-## Data policy
+## Política de datos
 
-- Never commit `data/raw/` or `data/processed/`.
-- Commit small fixtures and manifests only.
-- License and source of any dataset MUST be audited and documented before use.
+- Nunca comprometer `data/raw/` ni `data/processed/`.
+- Comprometer únicamente fixtures y manifests pequeños.
+- La licencia y la fuente de cualquier dataset DEBEN estar auditadas y
+  documentadas antes de su uso.
 
 ## CodeGraph
 
-Use `.codegraph/` index for structural queries. Never commit its contents.
+Usar el índice `.codegraph/` para consultas estructurales. Nunca comprometer su
+contenido.
 
 ## Testing
 
-Tests must verify real behavior that exists. No placeholder tests pretending
-features exist.
+Los tests deben verificar el comportamiento real que existe. Sin tests
+placeholder que pretendan que las características existen.

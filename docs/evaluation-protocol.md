@@ -1,244 +1,261 @@
-# Evaluation Protocol — retail-demand-inventory-decision-engine
+# Protocolo de evaluación — retail-demand-inventory-decision-engine
 
-Status: **implemented (protocol version 1.0)** — fixed BEFORE any report is
-materialized.
+Estado: **implementado (versión 1.0 del protocolo)** — fijado ANTES de que se
+materialice cualquier reporte.
 
-## Purpose
+## Propósito
 
-Define exactly how forecasts, inventory policies, and replenishment decisions
-are measured. The protocol is fixed before results are produced so that
-reported numbers are not shaped to look good. This document is normative; the
-materializer (`src/retail_demand_inventory/evaluation/materialize.py`) encodes
-it.
+Definir exactamente cómo se miden los pronósticos, las políticas de inventario y
+las decisiones de reposición. El protocolo se fija antes de producir resultados
+para que los números reportados no se moldeen para verse bien. Este documento es
+normativo; el materializer (`src/retail_demand_inventory/evaluation/materialize.py`)
+lo codifica.
 
-## Data frequency and calendar
+## Frecuencia de datos y calendario
 
-- **Frequency**: daily. The canonical `DemandTable` is on a strict daily
-  cadence per SKU; internal missing days are filled with `demand_units = 0.0`
-  and `stockout_flag = None` by the loaders (see `docs/source-contract.md`).
-- All dates in a SKU's series are consecutive calendar days.
+- **Frecuencia**: diaria. La `DemandTable` canónica está en una cadencia diaria
+  estricta por SKU; los días internos faltantes se rellenan con
+  `demand_units = 0.0` y `stockout_flag = None` por los loaders (ver
+  `docs/source-contract.md`).
+- Todas las fechas en la serie de un SKU son días de calendario consecutivos.
 
-## Minimum history
+## Historial mínimo
 
-- `MIN_TRAIN_PERIODS = 42` days. A SKU must have at least this many
-  observations before the first fold to be evaluated. The fixture provides
-  ~120 days per SKU, so all SKUs qualify.
+- `MIN_TRAIN_PERIODS = 42` días. Un SKU debe tener al menos este número de
+  observaciones antes del primer fold para ser evaluado. El fixture proporciona
+  ~120 días por SKU, por lo que todos los SKUs califican.
 
-## Splits (chronological, no leakage)
+## Splits (cronológicos, sin fuga)
 
-- **Horizon**: `HORIZON = 7` days.
-- **Final untouched test**: the last `FINAL_TEST_PERIODS = 14` days of the
-  calendar. This window is **never** used for model or policy selection; it is
-  used only for final reporting of the already-selected model.
-- **Backtest window**: all dates before the final test.
-- **Origins**: expanding-window rolling origins over the backtest window.
-  - Train window: `calendar[0 : origin]` (expanding; origin is the split point).
-  - Validation window: `calendar[origin : origin + HORIZON]`.
-  - Origin step = `HORIZON`, so consecutive validation windows are **disjoint
-    (no overlap)** and each fold's train strictly precedes its validation.
-  - A fold exists only if `len(train) >= MIN_TRAIN_PERIODS`.
-- Splits are computed by `data/splits.py` and validated (no overlap between
-  folds, no fold touches the final test, train never contains validation or
-  final-test dates).
+- **Horizonte**: `HORIZON = 7` días.
+- **Test final intacto**: los últimos `FINAL_TEST_PERIODS = 14` días del
+  calendario. Esta ventana **nunca** se usa para la selección de modelos o
+  políticas; se usa solo para el reporte final del modelo ya seleccionado.
+- **Ventana de backtest**: todas las fechas anteriores al test final.
+- **Orígenes**: orígenes móviles de ventana expansiva sobre la ventana de
+  backtest.
+  - Ventana de train: `calendar[0 : origin]` (expansiva; origin es el punto de
+    corte).
+  - Ventana de validación: `calendar[origin : origin + HORIZON]`.
+  - Paso de origen = `HORIZON`, por lo que las ventanas de validación
+    consecutivas son **disjuntas (sin superposición)** y el train de cada fold
+    precede estrictamente a su validación.
+  - Un fold existe solo si `len(train) >= MIN_TRAIN_PERIODS`.
+- Los splits los calcula `data/splits.py` y se validan (sin superposición entre
+  folds, ningún fold toca el test final, el train nunca contiene fechas de
+  validación ni de test final).
 
-## SKU criteria
+## Criterios de SKU
 
-- A SKU is evaluated if it has a continuous daily series that supports the
-  required minimum history, at least one fold, and the final test window.
-  The fixture defines 2 SKUs that meet these criteria; the real snapshot
-  population is selected by the documented bounded rule (see below).
+- Un SKU se evalúa si tiene una serie diaria continua que soporta el historial
+  mínimo requerido, al menos un fold y la ventana de test final. El fixture
+  define 2 SKUs que cumplen estos criterios; la población real de snapshot se
+  selecciona por la regla acotada documentada (ver más abajo).
 
-## No future-feature leakage
+## Sin fuga de features futuras
 
-- Forecast models consume only: past observed demand (lags and rolling
-  statistics) and **calendar features derived from the date itself**
-  (day-of-week, day-of-month, month, day-of-year, weekend flag).
-- Future covariates (discount, holiday, activity, weather) are **not** used,
-  so no unobserved-future feature can leak into a prediction. Calendar features
-  for future dates are deterministic.
+- Los modelos de pronóstico consumen solo: demanda observada pasada (lags y
+  estadísticas móviles) y **features de calendario derivadas de la fecha misma**
+  (día de la semana, día del mes, mes, día del año, flag de fin de semana).
+- Las covariables futuras (descuento, festivo, actividad, clima) **no** se usan,
+  por lo que ninguna feature futura no observada puede filtrarse en una
+  predicción. Las features de calendario para fechas futuras son deterministas.
 
-## Randomness
+## Aleatoriedad
 
-- Fixed seed `SEED = 20260811`. The pipeline is fully deterministic: any
-  stochastic step (currently none is required, but the seed is fixed
-  regardless) draws from `random.Random(SEED)` / sklearn's fixed
-  configuration. Two runs of the materializer with identical inputs produce
-  byte-identical reports.
+- Seed fijo `SEED = 20260811`. El pipeline es completamente determinista:
+  cualquier paso estocástico (actualmente no se requiere ninguno, pero el seed
+  está fijado de todos modos) se extrae de `random.Random(SEED)` / la
+  configuración fija de sklearn. Dos ejecuciones del materializer con entradas
+  idénticas producen reportes byte-idénticos.
 
-## Source modes
+## Modos de fuente
 
-- **Fixture mode (default, offline):** `materialize --source fixture` (or the
-  plain `python -m retail_demand_inventory.evaluation.materialize`) runs on the
-  committed synthetic fixture. It reads only committed files under
-  `data/fixtures/`, `data/manifests/`, `data/evaluations/` and **never touches
-  the network**. Output: `data/evaluations/experiment_report.json`.
-- **Real mode (pinned snapshot):** `materialize --source real` runs on the
-  verified raw parquet files under `data/raw/`. It **fails clearly** if raw
-  files are absent, if any manifest gate is unverified, if raw/canonical
-  checksums mismatch, or if the canonical checksum was never recorded — it
-  **never falls back to the fixture**. Output:
+- **Modo fixture (por defecto, offline):** `materialize --source fixture` (o el
+  `python -m retail_demand_inventory.evaluation.materialize` simple) se ejecuta
+  sobre el fixture sintético comprometido. Lee solo archivos comprometidos bajo
+  `data/fixtures/`, `data/manifests/`, `data/evaluations/` y **nunca toca la
+  red**. Salida: `data/evaluations/experiment_report.json`.
+- **Modo real (snapshot fijado):** `materialize --source real` se ejecuta sobre
+  los archivos parquet crudos verificados bajo `data/raw/`. **Falla claramente**
+  si los archivos crudos están ausentes, si algún gate de manifest no está
+  verificado, si los checksums crudos/canónicos no coinciden o si el checksum
+  canónico nunca se registró — **nunca cae al fixture**. Salida:
   `data/evaluations/freshretailnet-real-report.json`.
 
-## Real snapshot population (fixed before any metric)
+## Población real de snapshot (fijada antes de cualquier métrica)
 
-The real evaluation is a **`Deterministic bounded evaluation over pinned
-snapshot`** — it is NOT a full-dataset result and does not generalize.
+La evaluación real es una **`Deterministic bounded evaluation over pinned
+snapshot`** — NO es un resultado full-dataset y no generaliza.
 
-Population rule (identical rule text is recorded in the manifest, the schema
-report, and the report): select the first `MAX_POPULATION_KEYS = 10` keys in
-ascending `(store_id, product_id)` numeric order among keys that are
-**observed in train** and whose **combined train+eval** records span at least
-`REQUIRED_HISTORY_DAYS = 63` consecutive days (the minimum the protocol needs:
-`MIN_TRAIN_PERIODS + HORIZON + FINAL_TEST_PERIODS = 42 + 7 + 14`) AND share the
-identical date span (the modal span among qualifying keys, so every selected
-key covers the same calendar the protocol requires). **No random sampling.**
-The selection rule is defined in docs and the manifest before any metric is
-computed and is never changed after seeing results. The report records source
-row count, selected row count, excluded row count, selected keys/count, date
-range, and the rule.
+Regla de población (el texto de la regla idéntico se registra en el manifest, el
+schema report y el reporte): seleccionar las primeras `MAX_POPULATION_KEYS = 10`
+claves en orden numérico ascendente de `(store_id, product_id)` entre las claves
+que están **observadas en train** y cuyos registros combinados **train+eval**
+abarcan al menos `REQUIRED_HISTORY_DAYS = 63` días consecutivos (el mínimo que
+necesita el protocolo: `MIN_TRAIN_PERIODS + HORIZON + FINAL_TEST_PERIODS =
+42 + 7 + 14`) Y comparten el tramo de fechas idéntico (el tramo modal entre las
+claves elegibles, de modo que cada clave seleccionada cubra el mismo calendario
+que exige el protocolo). **Sin muestreo aleatorio.** La regla de selección se
+define en los docs y el manifest antes de calcular cualquier métrica y nunca se
+cambia después de ver resultados. El reporte registra el conteo de filas de
+fuente, el conteo de filas seleccionadas, el conteo de filas excluidas, las
+claves seleccionadas/conteo, el rango de fechas y la regla.
 
-### Expanded population (v2, opt-in)
+### Población expandida (v2, opt-in)
 
-v2 widens the deterministic bounded population to **100 keys** while keeping
-the same eligibility rule, snapshot, and protocol. It is opt-in via a
-population manifest; the v1 default (10 keys, no per-store cap) is unchanged.
+v2 amplía la población determinista acotada a **100 claves** manteniendo la misma
+regla de elegibilidad, snapshot y protocolo. Es opt-in vía un manifest de
+población; el default v1 (10 claves, sin límite por tienda) no cambia.
 
-| v1 (default) | v2 (opt-in via population manifest) |
+| v1 (default) | v2 (opt-in vía manifest de población) |
 | --- | --- |
 | `MAX_POPULATION_KEYS = 10` | `TARGET_POPULATION_KEYS = 100` |
-| no per-store cap | `PER_STORE_CAP_KEYS = 10` keys per store |
-| no manifest | `data/manifests/freshretailnet-real-population-v2.json` |
-| report `freshretailnet-real-report.json` | report `freshretailnet-real-expanded-report.json` |
+| sin límite por tienda | `PER_STORE_CAP_KEYS = 10` claves por tienda |
+| sin manifest | `data/manifests/freshretailnet-real-population-v2.json` |
+| reporte `freshretailnet-real-report.json` | reporte `freshretailnet-real-expanded-report.json` |
 
-Eligibility for v2 is identical to v1 (observed in train, combined span ≥ 63
-days, modal date span). The v2 rule then sorts eligible keys by ascending
-`(store_id, product_id)`, applies the structural store-diversity cap (at most
-10 keys per store), and takes the first 100 keys overall. No sampling, no
-final metrics, and no performance filters participate in selection; the rule is
-frozen before any metric is materialized. Selection uses **metadata only**
-(key presence and date spans) — demand and stockout values never influence it.
+La elegibilidad para v2 es idéntica a v1 (observada en train, tramo combinado ≥
+63 días, tramo de fechas modal). La regla v2 luego ordena las claves elegibles
+por `(store_id, product_id)` ascendente, aplica el tope estructural de diversidad
+de tiendas (a lo sumo 10 claves por tienda) y toma las primeras 100 claves en
+total. Sin muestreo, sin métricas finales y sin filtros de rendimiento que
+participen en la selección; la regla se congela antes de materializar cualquier
+métrica. La selección usa **solo metadatos** (presencia de claves y tramos de
+fechas) — la demanda y los valores de stockout nunca la influyen.
 
-Real mode with `--population` loads exactly the manifest's selected keys and
-fails clearly (never falls back) if the pinned revision, raw checksums,
-schema, keys, or date spans diverge from the source, or if the canonical
-checksum mismatches. Without `--population`, real mode keeps the v1 10-key
-behavior and the v1 report.
+El modo real con `--population` carga exactamente las claves seleccionadas del
+manifest y falla claramente (nunca cae) si la revisión fijada, los checksums
+crudos, el esquema, las claves o los tramos de fechas divergen de la fuente, o si
+el checksum canónico no coincide. Sin `--population`, el modo real mantiene el
+comportamiento de 10 claves de v1 y el reporte v1.
 
-The publisher's own `train`/`eval` split is NOT used for evaluation: this
-project re-splits chronologically over each selected key's combined span, for
-both v1 and v2.
+El split `train`/`eval` del propio publicador NO se usa para la evaluación: este
+proyecto re-corta cronológicamente sobre el tramo combinado de cada clave
+seleccionada, tanto para v1 como para v2.
 
-## Missing-day and stockout treatment
+## Tratamiento de días faltantes y stockout
 
-- Missing days are absent from the raw rows and are filled as zeros by the
-  loaders; they are then ordinary (zero-demand) days, and a missing day is
-  **never** treated as a stockout.
-- `stockout_flag` is derived directly from the documented source field
-  `stock_hour6_22_cnt > 0` (integer validated in 0..17); a missing value stays
-  unknown (`None`). **Zero sales never imply a stockout** (verified on real
-  bytes: stockout days retain positive sales).
-- `stockout_flag` days remain in the series with their observed (possibly
-  zero) demand. **Forecasts and metrics target observed sales, not
-  unconstrained demand**; censoring is documented, not corrected.
+- Los días faltantes están ausentes de las filas crudas y se rellenan como ceros
+  por los loaders; son entonces días ordinarios (con demanda cero), y un día
+  faltante **nunca** se trata como un stockout.
+- `stockout_flag` se deriva directamente del campo de fuente documentado
+  `stock_hour6_22_cnt > 0` (entero validado en 0..17); un valor faltante
+  permanece desconocido (`None`). **Las ventas cero nunca implican un stockout**
+  (verificado sobre bytes reales: los días con stockout conservan ventas
+  positivas).
+- Los días con `stockout_flag` permanecen en la serie con su demanda observada
+  (posiblemente cero). **Los pronósticos y las métricas apuntan a las ventas
+  observadas, no a la demanda sin restricciones**; la censura se documenta, no se
+  corrige.
 
-## Hyperparameter policy
+## Política de hiperparámetros
 
-- All model and policy hyperparameters use the documented defaults fixed in
-  code (see module docstrings). **No per-SKU or per-fold tuning** is
-  performed, to avoid selection bias on the evaluation data. Versioned
-  `model_version` / `policy_version` identifiers identify the exact
-  configuration that produced every number.
+- Todos los hiperparámetros de modelos y políticas usan los defaults
+  documentados fijados en código. **Sin ajuste por SKU o por fold**, para evitar
+  sesgo de selección en los datos de evaluación. Los identificadores versionados
+  `model_version` / `policy_version` identifican la configuración exacta que
+  produjo cada número.
 
-## Metrics
+## Métricas
 
-All metrics compare observed demand `a_t` with predicted demand `f_t` over a
-window of length `n`. A metric that is undefined returns `None` and is
-reported as such; undefined values never silently count as zero.
+Todas las métricas comparan la demanda observada `a_t` con la demanda predicha
+`f_t` sobre una ventana de longitud `n`. Una métrica indefinida devuelve `None` y
+se reporta como tal; los valores indefinidos nunca cuentan silenciosamente como
+cero.
 
-| Metric | Definition | Undefined case |
+| Métrica | Definición | Caso indefinido |
 | --- | --- | --- |
-| MAE | `mean(|a_t - f_t|)` | no observations → `None` |
-| RMSE | `sqrt(mean((a_t - f_t)^2))` | no observations → `None` |
+| MAE | `mean(|a_t - f_t|)` | sin observaciones → `None` |
+| RMSE | `sqrt(mean((a_t - f_t)^2))` | sin observaciones → `None` |
 | WMAPE | `sum(|a_t - f_t|) / sum(a_t)` | `sum(a_t) == 0` → `None` |
-| MASE | `MAE / mean(|e_naive|)` where `e_naive` are in-sample one-step naive errors from the training window of the same fold | training naive errors absent or `mean(|e_naive|) == 0` → `None` |
+| MASE | `MAE / mean(|e_naive|)` donde `e_naive` son los errores naive in-sample de un paso de la ventana de train del mismo fold | errores naive de train ausentes o `mean(|e_naive|) == 0` → `None` |
 
-## Reporting granularity
+## Granularidad del reporte
 
-- **Per fold**: each fold's per-model metrics.
-- **Per model**: pooled metrics across all folds plus the mean of per-fold
-  metrics.
-- **Per SKU** and **per category**: pooled metrics grouped by that key.
-- **Per horizon**: horizons are fixed at `HORIZON` in this protocol; the
-  summarizer still keys on horizon so the report structure survives a change
-  of horizon.
-- All reported numbers are rounded to 6 decimal places.
+- **Por fold**: métricas por modelo de cada fold.
+- **Por modelo**: métricas agrupadas en todos los folds más la media de las
+  métricas por fold.
+- **Por SKU** y **por categoría**: métricas agrupadas por esa clave.
+- **Por horizonte**: los horizontes están fijos en `HORIZON` en este protocolo;
+  el summarizer igualmente usa horizonte como clave para que la estructura del
+  reporte sobreviva a un cambio de horizonte.
+- Todos los números reportados se redondean a 6 decimales.
 
-## Model selection
+## Selección de modelo
 
-- Selection happens **per SKU** and uses **validation folds only** (never the
-  final test).
-- Rule: minimize pooled validation **MAE**; tie-break on lower pooled
-  **WMAPE**; final tie-break on lexicographically smaller `model_id`.
-- After selection, the chosen model is refit on all data preceding the final
-  test and evaluated on the final test (reported as `final_test`), and refit
-  on all history to produce the deployment forecast for the next `HORIZON`
-  days.
+- La selección ocurre **por SKU** y usa **solo folds de validación** (nunca el
+  test final).
+- Regla: minimizar el **MAE** agrupado de validación; desempatar por **WMAPE**
+  agrupado más bajo; desempate final por `model_id` lexicográficamente menor.
+- Después de la selección, el modelo elegido se reajusta en todos los datos
+  anteriores al test final y se evalúa en el test final (reportado como
+  `final_test`), y se reajusta en todo el historial para producir el pronóstico
+  de despliegue para los próximos `HORIZON` días.
 
-## Policy simulation and selection
+## Simulación y selección de política
 
-- Policies are simulated with the deterministic daily lost-sales engine
-  (`simulation/engine.py`); each run has an auditable run ID over its config,
-  policy, versions, seed, and demand source.
-- **Policy evaluation window**: the last fold's validation window demand
-  (observed sales). The final test is **not** used for policy selection.
-- Candidate policies are generated deterministically from per-SKU demand
-  statistics (mean/standard deviation) with documented parameters.
-- Selection objective: **minimize total cost subject to service level ≥
-  `SERVICE_LEVEL_TARGET = 0.90`**, where total cost =
-  holding + stockout + ordering cost over the simulated window.
-- Infeasible case (no candidate reaches the target): fall back to the
-  candidate with the highest simulated service level (tie → lower cost) and
-  report `feasible = false` with a transparent reason. This is a fallback,
-  not an "optimal" solution — no selection in this project is ever labeled
-  optimal.
-- Deterministic tie-break between feasible candidates: lower total cost, then
-  lower stockout units, then lexicographically smaller run ID.
-- **Sensitivity**: the selected policy is re-simulated on demand scaled by
-  `{0.9, 1.0, 1.1}`; service level, fill rate, and total cost are reported per
-  scale.
+- Las políticas se simulan con el motor determinista diario de ventas perdidas
+  (`simulation/engine.py`); cada ejecución tiene un run ID auditable sobre su
+  configuración, política, versiones, seed y fuente de demanda.
+- **Ventana de evaluación de política**: la demanda de la ventana de validación
+  del último fold (ventas observadas). El test final **no** se usa para la
+  selección de política.
+- Las políticas candidatas se generan determinísticamente a partir de
+  estadísticas de demanda por SKU (media/desviación estándar) con parámetros
+  documentados.
+- Objetivo de selección: **minimizar el costo total sujeto a nivel de servicio ≥
+  `SERVICE_LEVEL_TARGET = 0.90`**, donde el costo total = costo de tenencia +
+  stockout + pedido sobre la ventana simulada.
+- Caso infactible (ningún candidato alcanza el objetivo): caer al candidato con
+  el mayor nivel de servicio simulado (empate → menor costo) y reportar
+  `feasible = false` con una razón transparente. Esto es un fallback, no una
+  solución "óptima" — ninguna selección en este proyecto se etiqueta nunca como
+  óptima.
+- Desempate determinista entre candidatos factibles: menor costo total, luego
+  menores unidades de stockout, luego run ID lexicográficamente menor.
+- **Sensibilidad**: la política seleccionada se re-simula con demanda escalada
+  por `{0.9, 1.0, 1.1}`; el nivel de servicio, el fill rate y el costo total se
+  reportan por escala.
 
-## Assumptions and limitations (normative)
+## Supuestos y limitaciones (normativos)
 
-1. Demand is exogenous to the policy: inventory availability does not change
-   the demand series used in simulation.
-2. Sales lost during a stockout are **lost, not backlogged**.
-3. Orders placed at the end of a review day arrive at the **start of the day
-   `lead_time` days later**; lead time is constant; supply is unlimited.
-4. Holding cost is charged on end-of-day on-hand inventory; ordering cost is
-   charged per order placed; stockout cost is charged per lost unit.
-5. Review happens after demand for the day (end-of-period review).
-6. No perishability/expiry, no quantity discounts, no capacity limits.
-7. Forecasts target **observed sales**; censored demand during stockouts is
-   not recovered.
-8. The fixture is synthetic; **no reported number is a real-world result**.
+1. La demanda es exógena a la política: la disponibilidad de inventario no cambia
+   la serie de demanda usada en la simulación.
+2. Las ventas perdidas durante un stockout están **perdidas, no en backlog**.
+3. Los pedidos colocados al final de un día de revisión llegan al **inicio del día
+   `lead_time` días después**; el lead time es constante; el suministro es
+   ilimitado.
+4. El costo de tenencia se carga sobre el inventario disponible al final del día;
+   el costo de pedido se carga por pedido colocado; el costo de stockout se carga
+   por unidad perdida.
+5. La revisión ocurre después de la demanda del día (revisión de fin de período).
+6. Sin perecibilidad/vencimiento, sin descuentos por cantidad, sin límites de
+   capacidad.
+7. Los pronósticos apuntan a **ventas observadas**; la demanda censurada durante
+   stockouts no se recupera.
+8. El fixture es sintético; **ningún número reportado es un resultado del mundo
+   real**.
 
-## Definition of done for evaluation
+## Definición de terminado para la evaluación
 
-- [x] Splits, seeds, horizons, and metric formulas committed in this document.
-- [x] A single reproducible command reproduces every reported number:
-  `uv run python -m retail_demand_inventory.evaluation.materialize` (fixture) and
+- [x] Splits, seeds, horizontes y fórmulas de métricas comprometidos en este
+      documento.
+- [x] Un único comando reproducible reproduce cada número reportado:
+  `uv run python -m retail_demand_inventory.evaluation.materialize` (fixture) y
   `uv run python -m retail_demand_inventory.evaluation.materialize --source real
-  --manifest data/manifests/freshretailnet-real.json` (real, after acquisition
-  and schema report).
-- [x] The expanded (v2) real report is reproduced by
+  --manifest data/manifests/freshretailnet-real.json` (real, después de la
+  adquisición y el schema report).
+- [x] El reporte real expandido (v2) se reproduce con
   `uv run python -m retail_demand_inventory.evaluation.materialize --source real
   --manifest data/manifests/freshretailnet-real.json
   --population data/manifests/freshretailnet-real-population-v2.json`
-  (after generating the population manifest with `population_manifest` and the
-  dry-run profile with `population_profile`).
-- [x] Baseline comparison (naive forecast) is included in every report.
-- [x] Every recommendation cites the simulation run IDs that support it.
-- [x] Real mode is labeled `Deterministic bounded evaluation over pinned
-  snapshot`, never full-dataset, and never falls back to the fixture. The v2
-  expanded mode is labeled `Deterministic expanded bounded evaluation over
-  pinned snapshot` and likewise never falls back or generalizes.
+  (después de generar el manifest de población con `population_manifest` y el
+  perfil de dry-run con `population_profile`).
+- [x] La comparación de baseline (pronóstico naive) está incluida en cada
+      reporte.
+- [x] Cada recomendación cita los run IDs de simulación que la respaldan.
+- [x] El modo real está etiquetado `Deterministic bounded evaluation over pinned
+  snapshot`, nunca full-dataset, y nunca cae al fixture. El modo expandido v2
+  está etiquetado `Deterministic expanded bounded evaluation over pinned
+  snapshot` y de igual manera nunca cae ni generaliza.

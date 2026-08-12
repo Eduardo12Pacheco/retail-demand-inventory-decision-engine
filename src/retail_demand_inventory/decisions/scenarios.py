@@ -1,38 +1,3 @@
-"""Typed robustness scenario manifest for the decision layer.
-
-The scenario manifest freezes the bounded sensitivity matrix BEFORE any
-robustness metric is materialized. It records, for a FROZEN deterministic
-scenario set over the existing v2 population:
-
-- identity and provenance: `source_manifest_id`, `source_manifest_revision`,
-  `population_manifest_id`, `population_manifest_path`,
-- protocol invariants: seed, horizon, selection objective, tie-break, and the
-  explicit invariant-parameter list (source facts, v2 population, forecast
-  models/versions, candidate policy families/versions, folds, observed
-  selection-window semantics),
-- forecast and policy versions the report must use (validated against code),
-- the ordered scenario IDs and the per-scenario definitions: service target,
-  lead/review assumptions, cost multipliers, demand-stress settings, changed
-  parameters, labels, descriptions and rationale,
-- a stable `content_sha256` over the canonical serialization (independent of
-  file formatting), so the frozen matrix is verifiable byte-for-byte.
-
-The manifest is always GENERATED from code (`build_scenarios_manifest`); it is
-never hand-typed. Validation rejects duplicate IDs, missing parameters,
-negative/nonfinite costs, nonpositive lead/review, service targets outside
-[0, 1], unknown policy/model versions, unknown source/population IDs, broken
-deterministic ordering, and a checksum mismatch.
-
-Scenario demand stress is explicitly modeled as a *scenario-simulation-only*
-assumption: the scale applies to the deployment/simulation stress window and
-never to source demand, forecast training, or the primary v2 evaluation.
-
-Command:
-
-    python -m retail_demand_inventory.decisions.scenarios \\
-        --out data/manifests/robustness-scenarios-v1.0.0.json
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -62,9 +27,6 @@ SCENARIOS_MANIFEST_VERSION = "v1.0.0"
 SCENARIOS_MANIFEST_NAME = "robustness-scenarios"
 SCENARIOS_MANIFEST_FILE_NAME = "robustness-scenarios-v1.0.0.json"
 
-# The frozen scenario matrix, in deterministic order: the exact current
-# reference first, then one-factor-at-a-time cost/lead/review/service changes,
-# one joint stress case, and the demand-stress case last.
 SCENARIO_ORDER = (
     "baseline-v1",
     "holding-high",
@@ -82,7 +44,6 @@ SCENARIO_ORDER = (
 
 DEMAND_STRESS_SCOPE = "scenario-simulation-only"
 
-# Parameter names a scenario may declare as changed (relative to baseline-v1).
 KNOWN_PARAMETER_NAMES = (
     "service_level_target",
     "lead_time_days",
@@ -127,19 +88,15 @@ SELECTION_WINDOW_DEMAND_SCALE = (
     "applies ONLY to deployment/simulation stress and is documented per scenario"
 )
 
-# The exact source/population IDs the committed manifest references. They are
-# validated at executor time against the actual manifests (unknown IDs fail).
 SOURCE_MANIFEST_ID = "freshretailnet-real.json"
 SOURCE_MANIFEST_PATH = "data/manifests/freshretailnet-real.json"
 POPULATION_MANIFEST_ID = "freshretailnet-real-population-v2"
 POPULATION_MANIFEST_PATH = "data/manifests/freshretailnet-real-population-v2.json"
 
-# Default service/lead/review from the current reference (docs/evaluation-protocol.md).
 REFERENCE_SERVICE_TARGET = 0.90
 REFERENCE_LEAD_TIME_DAYS = 3
 REFERENCE_REVIEW_PERIOD_DAYS = 1
 
-# Default demand stress is no stress (scale 1.0, scenario-simulation-only).
 DEFAULT_DEMAND_STRESS: Mapping[str, object] = {
     "scale": 1.0,
     "scope": DEMAND_STRESS_SCOPE,
@@ -196,7 +153,6 @@ def _deterministic_timestamp() -> tuple[str, str]:
 
 
 def _repo_head() -> tuple[str | None, str]:
-    """HEAD at generation time; never fabricates the eventual commit SHA."""
     root = Path(__file__).resolve().parents[3]
     try:
         out = subprocess.run(
@@ -225,8 +181,6 @@ def _repo_root() -> Path:
 
 @dataclass(frozen=True)
 class ScenarioDefinition:
-    """One frozen robustness scenario: all decision assumptions for the run."""
-
     scenario_id: str
     label: str
     description: str
@@ -340,8 +294,6 @@ class ScenarioDefinition:
 
 @dataclass(frozen=True)
 class RobustnessScenariosManifest:
-    """The frozen scenario matrix plus all protocol invariants it runs under."""
-
     manifest_version: str
     manifest_name: str
     protocol_version: str
@@ -443,7 +395,6 @@ class RobustnessScenariosManifest:
         }
 
     def content_checksum(self) -> str:
-        """Stable SHA-256 over the canonical payload (excludes the checksum)."""
         payload = dict(self.to_dict())
         payload.pop("content_sha256", None)
         body = (
@@ -575,7 +526,6 @@ def load_scenarios_manifest(path: Path) -> RobustnessScenariosManifest:
 
 
 def _default_scenarios() -> tuple[ScenarioDefinition, ...]:
-    """The frozen 12-scenario matrix (see docs/robustness-protocol.md)."""
     demand_stress = dict(DEFAULT_DEMAND_STRESS)
     stress_high = {"scale": 1.30, "scope": DEMAND_STRESS_SCOPE}
     return (
@@ -790,12 +740,6 @@ def build_scenarios_manifest(
     timestamp_source: str | None = None,
     code_revision: str | None = None,
 ) -> RobustnessScenariosManifest:
-    """Generate the frozen robustness scenario manifest.
-
-    IDs/revision default to the committed real source and population manifests;
-    versions default to the actual code versions. Never hand-typed: the manifest
-    is always derived from code and (by default) the committed manifests.
-    """
     if (
         source_manifest_id is None
         or source_manifest_revision is None

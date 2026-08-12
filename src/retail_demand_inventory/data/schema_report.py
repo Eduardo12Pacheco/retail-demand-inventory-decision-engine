@@ -1,20 +1,3 @@
-"""Build the deterministic schema report for the pinned real-data snapshot.
-
-Command:
-
-    python -m retail_demand_inventory.data.schema_report \\
-        --manifest data/manifests/freshretailnet-real.json \\
-        --report data/reports/freshretailnet-real-schema.json
-
-Reads only the used parquet columns, loads the deterministic bounded
-population, produces the compact schema report (raw/accepted/rejected counts,
-reasons, SKUs, date range, frequency, missing values, duplicates, demand and
-stockout summaries, source columns/types), computes the canonical-content
-SHA-256 from the canonical serialization, and records the schema/stockout
-gates in the manifest. Requires the snapshot to already be verified
-(`snapshot_verified` gate); never touches the network.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -48,7 +31,6 @@ def build_schema_report(
     required_history_days: int = REQUIRED_HISTORY_DAYS,
     max_keys: int = MAX_POPULATION_KEYS,
 ) -> Path:
-    """Load the bounded population, write the schema report, update the manifest."""
     manifest = load_real_manifest(manifest_path)
     if not manifest.gates.get("snapshot_verified", False):
         raise RealLoaderError(

@@ -1,11 +1,3 @@
-"""Simple deterministic baselines.
-
-The naive forecast (last observed value repeated) is the reference baseline for
-MASE and for model comparison. The fixture and source provide no defensible
-seasonality period, so a seasonal-naive is NOT claimed here: naive is the
-documented baseline per docs/evaluation-protocol.md.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,8 +15,6 @@ from .base import (
 
 @dataclass
 class NaiveForecaster(Forecaster):
-    """Naive: predict the last observed demand for every future day."""
-
     model_id = "naive"
     model_version = "1.0"
     min_history = 1
@@ -45,7 +35,7 @@ class NaiveForecaster(Forecaster):
     def predict(self, context: FutureContext, horizon: int) -> Forecast:
         if len(context.dates) != horizon:
             raise ValueError("context.dates length must equal horizon")
-        if self._last != self._last:  # NaN sentinel: not fitted
+        if self._last != self._last:
             raise RuntimeError(f"{self.model_id}.predict called before fit")
         return Forecast(
             sku=self._sku,

@@ -1,10 +1,3 @@
-"""Expanded (v2) real materialization and v1 baseline regression.
-
-Offline by default (tiny fixtures). Two tests use the locally acquired raw
-snapshot and are skipped when `data/raw/` is absent; they are the only tests
-that touch real bytes.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -51,9 +44,6 @@ def _setup_expanded(tmp_path, *, stores=3, products=3, per_store_cap=1, target_k
     return raw, manifest_path, pop_path
 
 
-# --- v1 baseline regression ------------------------------------------------
-
-
 def test_committed_v1_real_report_hash_pinned(repo_root) -> None:
     report = repo_root / "data/evaluations" / "freshretailnet-real-report.json"
     assert report.exists()
@@ -78,17 +68,11 @@ def test_v1_real_report_unchanged_when_materialized_to_temp(
     )
     committed = load_json(committed_path)
     regenerated = load_json(report_path)
-    # The only field that varies across runs is the documented informational
-    # git HEAD recorded at generation time ("not the eventual commit SHA");
-    # every other field must be byte-identical.
     for data in (committed, regenerated):
         data["real"]["repository_commit_sha"] = "<normalized>"
     assert json.dumps(regenerated, sort_keys=True) == json.dumps(
         committed, sort_keys=True
     )
-
-
-# --- expanded (v2) materialization -----------------------------------------
 
 
 def test_expanded_materialize_writes_distinct_report(tmp_path) -> None:

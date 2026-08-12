@@ -1,5 +1,3 @@
-"""Replenishment decisions: ranked, evidence-backed recommendations."""
-
 from __future__ import annotations
 
 from .evidence import EvidenceBundle

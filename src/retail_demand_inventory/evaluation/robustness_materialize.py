@@ -1,30 +1,3 @@
-"""Deterministic decision-robustness materialization over the v2 population.
-
-    uv run python -m retail_demand_inventory.evaluation.robustness_materialize \\
-        --source real \\
-        --manifest data/manifests/freshretailnet-real.json \\
-        --population data/manifests/freshretailnet-real-population-v2.json \\
-        --scenarios data/manifests/robustness-scenarios-v1.0.0.json
-    uv run python -m retail_demand_inventory.evaluation.robustness_materialize \\
-        --source fixture --scenarios data/manifests/robustness-scenarios-v1.0.0.json
-
-Runs the frozen scenario matrix (`docs/robustness-protocol.md`) over the
-existing v2 population. Scenario reruns vary ONLY the declared simulation
-assumptions (service target, lead/review, cost multipliers) and the demand-
-stress scale; the forecast, model choices, candidate policy families/versions,
-seed, horizon, and temporal folds are invariant, and the backtest is computed
-once and reused. The baseline-v1 scenario reproduces the current v2 decisions.
-
-Real mode validates source gates, raw checksums, the population manifest, the
-canonical checksum, and the scenario manifest BEFORE reading; it never falls
-back to the fixture. Fixture mode is offline and useful for tests. Raw files
-stay in the gitignored `data/raw/`; the committed report records only metadata
-and checksums.
-
-Determinism: fixed seed, fixed protocol, deterministic timestamp, sorted JSON.
-Two runs with identical inputs produce byte-identical reports.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -109,9 +82,6 @@ ROBUSTNESS_GENERALIZATION = (
     "generalize to all retailers."
 )
 
-# Documented deterministic runtime budget (not a wall-clock measurement). Basis:
-# measured v2 materialization ~83s for 100 keys plus 12 scenarios of cheap
-# per-key selection/recommendation simulations over short windows.
 ROBUSTNESS_RUNTIME_BUDGET_SECONDS = 600
 ROBUSTNESS_RUNTIME_NOTE = (
     "Documented deterministic constant (not wall-clock): basis v2 "
@@ -181,7 +151,7 @@ ROBUSTNESS_LIMITATIONS = (
 
 
 class RobustnessError(ValueError):
-    """Raised when a robustness materialization precondition fails."""
+    pass
 
 
 def _validate_scenarios_against_source(
@@ -189,7 +159,6 @@ def _validate_scenarios_against_source(
     source,
     population,
 ) -> None:
-    """Reject unknown/mismatched source and population IDs (never fallback)."""
     if scenarios.source_manifest_revision != source.pinned_revision:
         raise RobustnessError(
             "scenario manifest revision divergence: scenarios record "
@@ -219,7 +188,6 @@ def _compute_sku_invariants(
     backtest: BacktestReport,
     horizon: int,
 ) -> dict[str, object]:
-    """Everything about a key that is invariant across scenarios."""
     stats = _sku_stats(table, sku)
     sku_folds = tuple(ff for ff in backtest.folds if ff.sku == sku)
     sku_summaries = _summaries_for(sku_folds)
@@ -266,7 +234,6 @@ def _build_robustness_sku_section(
     report_name: str,
     generated_at: str,
 ) -> dict[str, object]:
-    """Run one scenario for one key: selection, recommendation, sensitivity."""
     sku = str(invariants["sku"])
     stats = invariants["stats"]
     lead = scenario.lead_time_days
@@ -465,7 +432,6 @@ def _compute_scenario_sections(
     seed: int,
     horizon: int,
 ) -> dict[str, Mapping[str, Mapping[str, object]]]:
-    """Build {scenario_id: {key: section}} using the shared backtest cache."""
     invariants = {
         sku: _compute_sku_invariants(
             table=table,
@@ -667,11 +633,6 @@ def materialize_robustness_real(
     raw_dir: Path,
     outdir: Path,
 ) -> Path:
-    """Run the frozen scenario matrix over the verified v2 real population.
-
-    Fails clearly (never falls back) on any gate, raw checksum, canonical
-    checksum, population-manifest, or scenario-manifest problem.
-    """
     source = load_real_manifest(source_manifest_path)
     source.require_gates()
     source.require_raw_ok(raw_dir)
@@ -837,12 +798,6 @@ def materialize_robustness_fixture(
     scenario_manifest_path: Path,
     outdir: Path,
 ) -> Path:
-    """Run the frozen scenario matrix over the committed synthetic fixture.
-
-    Offline and useful for tests: reads only committed files, validates the
-    scenario manifest structurally, and skips the real source/population
-    cross-checks (the fixture has no population manifest).
-    """
     manifest = load_manifest(manifest_path)
     from ..data import sha256_file
 
@@ -1027,7 +982,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(SYNTHETIC_NOTICE)
         return 0
 
-    # Real mode: fails clearly, never falls back.
     manifest_path = (
         args.manifest or root / "data" / "manifests" / "freshretailnet-real.json"
     )

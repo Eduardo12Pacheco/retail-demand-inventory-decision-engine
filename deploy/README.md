@@ -1,1 +1,1 @@
-# Deployment notes land here when the project has a deployable surface.
+# Las notas de despliegue llegarán aquí cuando el proyecto tenga una superficie desplegable.

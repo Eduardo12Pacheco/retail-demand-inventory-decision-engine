@@ -1,11 +1,3 @@
-"""Chronological expanding/rolling origins with an untouched final test split.
-
-The pipeline must never let the final test window influence model or policy
-selection. This module builds folds whose train windows strictly precede their
-validation windows, with disjoint validation windows (no overlap) by default,
-and keeps the final test dates out of every fold.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -14,13 +6,11 @@ from datetime import date
 
 
 class SplitError(ValueError):
-    """Raised when splits cannot be constructed from the given calendar."""
+    pass
 
 
 @dataclass(frozen=True)
 class Fold:
-    """One backtest fold: a training window and a following validation window."""
-
     index: int
     train_dates: tuple[date, ...]
     validation_dates: tuple[date, ...]
@@ -28,14 +18,11 @@ class Fold:
 
 @dataclass(frozen=True)
 class TimeSplits:
-    """Folds plus the untouched final test window over one calendar."""
-
     calendar: tuple[date, ...]
     folds: tuple[Fold, ...]
     final_test_dates: tuple[date, ...]
 
     def validate(self) -> tuple[str, ...]:
-        """Return human-readable problems; empty tuple means valid."""
         problems: list[str] = []
         if len(set(self.calendar)) != len(self.calendar):
             problems.append("calendar contains duplicate dates")
@@ -121,13 +108,6 @@ def expanding_origins(
     final_test_periods: int,
     step: int | None = None,
 ) -> TimeSplits:
-    """Expanding-window rolling origins.
-
-    The training window always starts at the calendar's first date and grows
-    with each origin. `step` defaults to `horizon`, so validation windows are
-    disjoint (no overlap). The last `final_test_periods` dates are reserved
-    as the untouched final test.
-    """
     cal = tuple(sorted(calendar))
     step = step if step is not None else horizon
     final_test = cal[len(cal) - final_test_periods :] if final_test_periods else ()
@@ -153,12 +133,6 @@ def rolling_origins(
     rolling_train_periods: int,
     step: int | None = None,
 ) -> TimeSplits:
-    """Rolling-window origins with a fixed-length training window.
-
-    The training window covers the `rolling_train_periods` dates immediately
-    before each origin. If the available history is shorter, the window is
-    truncated but still validated against `min_train_periods`.
-    """
     if rolling_train_periods <= 0:
         raise SplitError("rolling_train_periods must be positive")
     cal = tuple(sorted(calendar))

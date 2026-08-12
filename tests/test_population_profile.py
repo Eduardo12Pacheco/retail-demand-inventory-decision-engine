@@ -1,6 +1,3 @@
-"""Population profile: deterministic reproducibility, coverage counts, dry-run
-behavior, and population-manifest validation reporting."""
-
 from __future__ import annotations
 
 import json

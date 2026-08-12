@@ -1,5 +1,3 @@
-"""Forecasting models: interface, behavior, determinism, insufficient history."""
-
 from __future__ import annotations
 
 from datetime import date
@@ -38,7 +36,6 @@ def test_moving_average_constant_level(table_factory) -> None:
 
 
 def test_ses_smoothing(table_factory) -> None:
-    # level: s1=1, s2=0.3*2+0.7*1=1.3, s3=0.3*4+0.7*1.3=2.11
     model = SESForecaster(alpha=0.3).fit(table_factory([1.0, 2.0, 4.0]))
     forecast = model.predict(_context(2), 2)
     assert forecast.values == pytest.approx((2.11, 2.11))
@@ -54,7 +51,7 @@ def test_hgb_predicts_horizon_nonnegative_and_reproducible(table_factory) -> Non
     assert fa.horizon == 7
     assert len(fa.points) == 7
     assert all(v >= 0 for v in fa.values)
-    assert fa.values == fb.values  # deterministic
+    assert fa.values == fb.values
     assert fa.model_id == "hist_gradient_boosting"
 
 

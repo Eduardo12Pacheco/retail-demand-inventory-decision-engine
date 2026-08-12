@@ -1,5 +1,3 @@
-"""Real parquet loader: schema, mapping semantics, population, checksums."""
-
 from __future__ import annotations
 
 from datetime import date
@@ -50,9 +48,6 @@ def _manifest_and_dataset(
     write_split(raw, "eval", daily_rows(keys, "2024-03-11", eval_days))
     manifest = make_manifest(raw, train_name="train.parquet", eval_name="eval.parquet")
     return manifest, raw
-
-
-# --- schema inspection ------------------------------------------------------
 
 
 def test_inspect_parquet_schema_matches_expected(tmp_path) -> None:
@@ -116,9 +111,6 @@ def test_verify_parquet_schema_wrong_type_fails(tmp_path) -> None:
         verify_parquet_schema(path, EXPECTED_REAL_SCHEMA, where="train.parquet")
 
 
-# --- row mapping semantics --------------------------------------------------
-
-
 def test_map_row_continuous_demand_and_direct_stockout() -> None:
     assert map_real_row(_row(sale_amount=0.77, stock_hour6_22_cnt=3)) == DemandRecord(
         sku="1|2",
@@ -172,9 +164,6 @@ def test_map_row_missing_required_fields_rejected() -> None:
     assert map_real_row(_row(store_id=None)).reason == "missing_sku"
 
 
-# --- canonical vs raw checksums ---------------------------------------------
-
-
 def test_canonical_and_raw_checksums_are_distinct(tmp_path) -> None:
     manifest, raw = _manifest_and_dataset(tmp_path)
     result = load_real_snapshot(
@@ -205,9 +194,6 @@ def test_canonical_serialize_is_deterministic(tmp_path) -> None:
     )
     assert canonical_serialize(a.table) == canonical_serialize(b.table)
     assert a.canonical_sha256 == b.canonical_sha256
-
-
-# --- population selection ---------------------------------------------------
 
 
 def test_population_selects_first_sorted_keys(tmp_path) -> None:
@@ -243,9 +229,6 @@ def test_population_requires_history_and_shared_span(tmp_path) -> None:
         max_keys=2,
     )
     assert selection.selected_keys == ()
-
-
-# --- loader integration -----------------------------------------------------
 
 
 def test_load_real_snapshot_ok_and_summary(tmp_path) -> None:

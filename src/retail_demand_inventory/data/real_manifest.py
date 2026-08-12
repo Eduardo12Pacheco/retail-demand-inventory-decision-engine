@@ -1,23 +1,3 @@
-"""Typed manifest for a pinned real-data snapshot.
-
-This complements the synthetic `DatasetManifest`: it records everything needed
-to acquire, verify, and audit a real dataset snapshot without keeping the raw
-bytes in the repository:
-
-- identity (dataset id, publisher, pinned revision, source URLs),
-- license / attribution / citation,
-- raw files with expected (source-declared) and observed (locally computed)
-  sizes and SHA-256 checksums, plus optional archive / extracted-file fields,
-- the canonicalization version, rule, and canonical-content SHA-256,
-- the stockout derivation version and rule,
-- explicit gate statuses that must all be true before real-mode evaluation.
-
-A real snapshot is only usable once every gate is true AND every raw file has
-an observed checksum. Unlike the synthetic manifest, a missing observed
-checksum FAILS verification in real mode: the optional-checksum silent-pass
-behavior is reserved for the synthetic fixture only.
-"""
-
 from __future__ import annotations
 
 import json
@@ -34,7 +14,6 @@ REAL_MANIFEST_VERSION = "1"
 SUPPORTED_CANONICALIZATION_VERSION = "1"
 SUPPORTED_STOCKOUT_DERIVATION_VERSION = "1"
 
-# Exactly-named gate statuses; all five must be true before real evaluation.
 REAL_GATES = (
     "source_verified",
     "license_verified",
@@ -57,8 +36,6 @@ def _revision_ok(value: str | None) -> bool:
 
 @dataclass(frozen=True)
 class RawFileEntry:
-    """One raw file of the pinned snapshot (e.g. train.parquet)."""
-
     name: str
     local_name: str
     url: str
@@ -123,8 +100,6 @@ class RawFileEntry:
 
 @dataclass(frozen=True)
 class RealSnapshotManifest:
-    """Provenance, checksums, and gates for one pinned real-data snapshot."""
-
     manifest_version: str
     dataset_id: str
     name: str
@@ -236,7 +211,6 @@ class RealSnapshotManifest:
         }
 
     def validate(self) -> tuple[str, ...]:
-        """Return human-readable problems; empty tuple means valid."""
         problems: list[str] = []
         for key in (
             "dataset_id",
@@ -329,7 +303,6 @@ class RealSnapshotManifest:
             raise ManifestError("; ".join(problems))
 
     def require_gates(self) -> None:
-        """All five gates must be true; otherwise raise."""
         self.require_valid()
         not_verified = [gate for gate in REAL_GATES if not self.gates.get(gate, False)]
         if not_verified:
@@ -344,7 +317,6 @@ class RealSnapshotManifest:
         raise ManifestError(f"no raw file entry named {name!r}")
 
     def with_observed(self, name: str, size: int, sha256: str) -> RealSnapshotManifest:
-        """Return a copy with the observed size/checksum recorded for `name`."""
         from dataclasses import replace
 
         updated: list[RawFileEntry] = []
@@ -386,10 +358,6 @@ class RealSnapshotManifest:
         )
 
     def verify_raw(self, directory: Path) -> tuple[str, ...]:
-        """Verify every raw file present with exact size and SHA-256.
-
-        In real mode a missing observed checksum is a FAILURE (no silent pass).
-        """
         problems: list[str] = []
         for entry in self.raw_files:
             local = directory / entry.local_name

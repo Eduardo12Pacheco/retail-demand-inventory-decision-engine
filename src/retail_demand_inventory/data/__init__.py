@@ -1,5 +1,3 @@
-"""Canonical validated demand data: contracts, loaders, manifests, splits."""
-
 from __future__ import annotations
 
 from .contracts import (

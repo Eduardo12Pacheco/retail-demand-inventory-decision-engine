@@ -1,12 +1,3 @@
-"""Aggregate statistics for the expanded (v2) real evaluation report.
-
-These helpers turn the per-key evaluation sections (built by the materializer)
-into cross-key summaries: micro (pooled over all keys), macro (mean of per-key
-metrics), per-key variability (median/p25/p75/p95), per-fold views, and policy
-constraint / fallback / undefined counts. All numbers are derived from the
-report sections themselves — nothing is hand-typed.
-"""
-
 from __future__ import annotations
 
 from collections import Counter
@@ -34,7 +25,6 @@ def _pct(values: np.ndarray, p: float) -> float:
 
 
 def distribution_stats(values: Sequence[float | None]) -> dict[str, object]:
-    """Distribution summary over non-None values; None never counts as zero."""
     present = [v for v in values if v is not None]
     n = len(values)
     undefined = n - len(present)
@@ -95,7 +85,6 @@ def _pooled(actuals: Sequence[float], predicted: Sequence[float]) -> dict[str, o
 def final_test_aggregates(
     per_sku: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
-    """Micro (pooled over keys) + macro (per-key distribution) forecast metrics."""
     keys = sorted(per_sku)
     actuals: list[float] = []
     predicted: list[float] = []
@@ -127,7 +116,6 @@ def final_test_aggregates(
 def backtest_aggregates(
     per_sku: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
-    """Per-model aggregate backtest metrics across keys (macro level)."""
     by_model: dict[str, dict[str, object]] = {}
     for key in sorted(per_sku):
         for summary in per_sku[key]["backtest"]["models"]:
@@ -173,7 +161,6 @@ def backtest_aggregates(
 def per_fold_aggregates(
     per_sku: Mapping[str, Mapping[str, object]],
 ) -> list[dict[str, object]]:
-    """Per-fold cross-key distribution of each model's fold metrics."""
     by_fold: dict[int, dict[str, dict[str, list[float | None]]]] = {}
     for key in sorted(per_sku):
         for row in per_sku[key]["backtest"]["per_fold"]:
@@ -195,7 +182,6 @@ def per_fold_aggregates(
 
 
 def policy_aggregates(per_sku: Mapping[str, Mapping[str, object]]) -> dict[str, object]:
-    """Selected-policy metrics, constraint satisfaction, and fallback counts."""
     keys = sorted(per_sku)
     selected = [per_sku[key]["policy_selection"]["selected"] for key in keys]
     metrics = {
@@ -244,7 +230,6 @@ def policy_aggregates(per_sku: Mapping[str, Mapping[str, object]]) -> dict[str, 
 def failed_undefined_counts(
     per_sku: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
-    """Counts of undefined/failed metric values across the report sections."""
     final_undefined = 0
     final_defined = 0
     backtest_insufficient = 0
@@ -273,7 +258,6 @@ def build_expanded_section(
     per_sku: Mapping[str, Mapping[str, object]],
     selection: ExpandedPopulationSelection,
 ) -> dict[str, object]:
-    """Compose the cross-key aggregation section for the expanded report."""
     return {
         "key_count": len(per_sku),
         "selection": selection.to_dict(),

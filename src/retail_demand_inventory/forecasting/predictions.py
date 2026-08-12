@@ -1,11 +1,3 @@
-"""Recursive multi-step prediction helpers.
-
-`recursive_multistep` generates a horizon of forecasts one step at a time:
-each step appends the previous prediction to the running series so that lags
-and rolling statistics for the next step are available. Predictions are
-clamped to non-negative values because demand is non-negative.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
@@ -22,7 +14,6 @@ def recursive_multistep(
     windows: Sequence[int],
     predict_one: Callable[[list[float]], float],
 ) -> tuple[float, ...]:
-    """Predict future demand one step at a time, feeding predictions back as history."""
     values: list[float] = list(history_values)
     names = feature_names(max_lag, windows)
     if len(values) < max(max_lag, *windows):

@@ -1,10 +1,3 @@
-"""Robustness materialization: fixture/real modes, determinism, analysis.
-
-Offline by default (tiny fixtures and temp parquet via real_helpers). Two tests
-use the locally acquired raw snapshot and are skipped when `data/raw/` is
-absent, mirroring the existing expanded-materialize suite.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -73,9 +66,6 @@ def _setup_real(tmp_path, *, stores=3, products=3, per_store_cap=1, target_keys=
     return raw, manifest_path, pop_path, scen_path
 
 
-# --- v1/v2 report integrity ------------------------------------------------
-
-
 def test_v1_and_v2_report_hashes_pinned(repo_root) -> None:
     for name, expected in (
         ("freshretailnet-real-report.json", V1_REPORT_SHA256),
@@ -84,9 +74,6 @@ def test_v1_and_v2_report_hashes_pinned(repo_root) -> None:
         report = repo_root / "data/evaluations" / name
         assert report.exists()
         assert hashlib.sha256(report.read_bytes()).hexdigest() == expected
-
-
-# --- fixture mode -----------------------------------------------------------
 
 
 def _fixture_paths(repo_root):
@@ -215,9 +202,6 @@ def test_fixture_mode_does_not_touch_other_reports(repo_root, tmp_path) -> None:
     )
     assert not (outdir / "experiment_report.json").exists()
     assert not (outdir / "freshretailnet-real-report.json").exists()
-
-
-# --- real mode (temp parquet) ----------------------------------------------
 
 
 def test_real_robustness_report_structure(tmp_path) -> None:
@@ -384,9 +368,6 @@ def test_real_rejects_divergent_population(tmp_path) -> None:
         )
 
 
-# --- real mode over the local verified raw snapshot (skipped when absent) ---
-
-
 def test_committed_robustness_report_consistent_with_v2(repo_root) -> None:
     report_path = repo_root / "data/evaluations" / ROBUSTNESS_REPORT_NAME
     if not report_path.exists():
@@ -434,9 +415,6 @@ def test_real_robustness_reproduces_committed_report(repo_root, tmp_path) -> Non
     assert json.dumps(regenerated, sort_keys=True) == json.dumps(
         committed, sort_keys=True
     )
-
-
-# --- robustness analysis unit tests ----------------------------------------
 
 
 def _fake_section(scenario_id, key, policy_id="rop_qty", constraint=True):

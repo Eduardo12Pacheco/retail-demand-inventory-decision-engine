@@ -1,5 +1,3 @@
-"""Chronological splits: no overlap, untouched final test, determinism."""
-
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -27,13 +25,11 @@ def test_expanding_folds_are_disjoint_and_ordered() -> None:
     )
     splits.require_valid()
     assert len(splits.folds) == 9
-    # validation windows are disjoint (no overlap) and strictly ordered
     seen: set[date] = set()
     for fold in splits.folds:
         assert len(fold.validation_dates) == 7
         assert not (seen & set(fold.validation_dates))
         seen |= set(fold.validation_dates)
-    # train grows (expanding)
     train_lengths = [len(fold.train_dates) for fold in splits.folds]
     assert train_lengths == sorted(train_lengths)
     assert train_lengths[0] == 42
@@ -69,8 +65,6 @@ def test_rolling_window_is_fixed() -> None:
         rolling_train_periods=50,
     )
     lengths = [len(fold.train_dates) for fold in splits.folds]
-    # earlier folds are truncated by the available history; once enough
-    # history exists the window is exactly `rolling_train_periods`
     assert all(length >= 42 for length in lengths)
     assert lengths[-1] == 50
     assert splits.final_test_dates == tuple(calendar[-14:])

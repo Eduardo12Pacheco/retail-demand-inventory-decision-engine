@@ -1,5 +1,3 @@
-"""CSV loaders: canonical fixture and FreshRetailNet-style source rows."""
-
 from __future__ import annotations
 
 import csv
@@ -127,7 +125,7 @@ def test_load_fresh_retail_net_fills_gaps(tmp_path) -> None:
         ],
         [
             ["2024-01-01", "7", "38", "0.1", "5", "0"],
-            ["2024-01-03", "7", "38", "0.2", "5", "0"],  # gap on 2024-01-02
+            ["2024-01-03", "7", "38", "0.2", "5", "0"],
         ],
     )
     table = load_fresh_retail_net(path)

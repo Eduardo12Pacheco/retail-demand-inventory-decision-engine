@@ -1,97 +1,103 @@
 # Demo Script — retail-demand-inventory-decision-engine
 
-Status: **implemented** — fixture-default and offline; real-snapshot modes are
-shown only when a verified real report exists, and are never relabeled.
+Estado: **implementada** — fixture-por-defecto y offline; los modos de snapshot
+real se muestran solo cuando existe un reporte real verificado, y nunca se
+re-etiquetan.
 
-Live screenshots of the app are committed under `docs/assets/publication/`.
+Capturas de pantalla en vivo de la aplicación están comprometidas bajo
+`docs/assets/publication/`.
 
-## Quick walkthrough (60–90 s)
+## Recorrido rápido (60–90 s)
 
-Run the app, then narrate this flow in order:
+Ejecute la aplicación y luego narre este flujo en orden:
 
-1. **0–10 s — data mode and scope.** The title is followed by the red banner
-   `Synthetic fixture — not a real business result` and the expanded
-   **Experiment status** panel: data source, license, checksum, seed, package /
-   protocol / schema versions, and the source-contract-vs-fixture note. The
-   **Real snapshot status** panel is collapsed (bounded evaluations live
-   there).
-2. **10–30 s — forecasting.** Pick a SKU from the selectbox. The
-   **Demand history and forecasts** chart shows observed demand, the selected
-   model's final-test forecast vs actual, and the deployment forecast. The
-   **Error metrics** table shows out-of-sample MAE / RMSE / WMAPE / MASE.
-3. **30–45 s — policy simulation.** **Policy comparison** lists every simulated
-   candidate policy (service level, fill rate, stockouts, total cost) with the
-   selected one marked, on the last validation fold only.
-4. **45–60 s — recommendation and evidence.** The **Recommendation** block
-   states the selected policy, order quantity, simulated service / fill /
-   cost, and the **evidence run ID** (`recommendation_run_id`), plus the
-   demand-scale sensitivity table.
-5. **60–80 s — robustness.** Open **Robustness (sensitivity over modeled
-   business assumptions)**: the panel states the modeled-assumption and
-   bounded-scope notices, then the **scenario selector** (12 frozen scenarios)
-   drives the baseline-vs-scenario comparison. Because the demo SKU is a
-   fixture SKU, the panel honestly shows scenario-level stability across the
-   bounded real v2 population (e.g., 100 keys, policy retention %) instead of a
-   per-key real comparison.
-6. **80–90 s — limitations.** Close with the **Assumptions and limitations**
-   list and the explicit synthetic label.
+1. **0–10 s — modo de datos y alcance.** Al título le sigue el banner rojo
+   `Synthetic fixture — not a real business result` y el panel expandido de
+   **Experiment status**: fuente de datos, licencia, checksum, seed, versiones de
+   paquete / protocolo / esquema y la nota source-contract-vs-fixture. El panel
+   de **Real snapshot status** está colapsado (las evaluaciones acotadas viven
+   allí).
+2. **10–30 s — pronóstico.** Elija un SKU en el selectbox. El gráfico de
+   **Demand history and forecasts** muestra la demanda observada, el pronóstico
+   de test final del modelo seleccionado vs real y el pronóstico de despliegue.
+   La tabla de **Error metrics** muestra MAE / RMSE / WMAPE / MASE fuera de
+   muestra.
+3. **30–45 s — simulación de política.** **Policy comparison** lista cada política
+   candidata simulada (nivel de servicio, fill rate, stockouts, costo total) con
+   la seleccionada marcada, solo sobre el último fold de validación.
+4. **45–60 s — recomendación y evidencia.** El bloque de **Recommendation**
+   indica la política seleccionada, la cantidad de pedido, el servicio / fill /
+   costo simulados y el **evidence run ID** (`recommendation_run_id`), más la
+   tabla de sensibilidad a la escala de demanda.
+5. **60–80 s — robustez.** Abra **Robustness (sensitivity over modeled business
+   assumptions)**: el panel indica los avisos de supuesto-modelado y alcance-
+   acotado, y luego el **scenario selector** (12 escenarios congelados) impulsa
+   la comparación baseline-vs-escenario. Como el SKU de la demo es un SKU de
+   fixture, el panel muestra honestamente la estabilidad a nivel de escenario en
+   la población real v2 acotada (por ejemplo, 100 claves, % de retención de
+   política) en lugar de una comparación real por clave.
+6. **80–90 s — limitaciones.** Cierre con la lista de **Assumptions and
+   limitations** y la etiqueta sintética explícita.
 
-Closing line to use: the default demo is a synthetic fixture, not a real
-business result; the real evaluations are deterministic, bounded to their
-populations, and do not generalize.
+Línea de cierre a usar: la demo por defecto es un fixture sintético, no un
+resultado de negocio real; las evaluaciones reales son deterministas, acotadas a
+sus poblaciones y no generalizan.
 
-## What the demo shows
+## Qué muestra la demo
 
-A Streamlit app over committed files. The user picks a SKU and sees:
+Una aplicación Streamlit sobre archivos comprometidos. El usuario elige un SKU y
+ve:
 
-1. **Experiment status** — dataset/manifest info, fixed seed, protocol and
-   package versions, and the prominent label
+1. **Experiment status** — información de dataset/manifest, seed fijo, versiones
+   de protocolo y paquete, y la etiqueta prominente
    `Synthetic fixture — not a real business result`.
-2. **Real-snapshot status panel** — if a verified real report exists it shows
-   the pinned revision, manifest path/version, the deterministic-bounded scope,
-   stockout semantics, and limitations. When the **expanded (v2)** report
-   exists it is shown explicitly with its population ID
-   (`freshretailnet-real-population-v2`), key/store/product counts, the
-   bounded-population warning, stockout semantics, and a compact distributional
-   summary (median/p25/p75/p95 of final-test and policy metrics). If no real
-   report exists, it shows that real mode is unavailable and gives the exact
-   recovery commands (acquisition → schema report → materialize).
-3. **Demand history** for the selected SKU (from the fixture).
-4. **Forecast comparison** — selected model's final-test forecast vs observed
-   demand, plus the deployment forecast for the next horizon.
-5. **Error metrics** — MAE / RMSE / WMAPE / MASE from the report.
-6. **Policy comparison** — every simulated candidate policy with service
-   level, fill rate, stockout units/events, and total cost.
-7. **Recommendation** — selected policy, order quantity, simulated service /
-   fill / stockouts / cost, constraint status, reason, evidence, and run IDs.
-8. **Robustness (sensitivity over modeled business assumptions)** — shown only
-   when the committed robustness report exists
-   (`data/evaluations/freshretailnet-robustness-report-v1.0.0.json`). A
-   scenario selector lets the user compare `baseline-v1` against any of the 12
-   frozen scenarios for the selected SKU (policy, order quantity, reorder
-   point / order-up-to level, service, cost) and shows the cross-key summary
-   (policy retention %, change %, infeasible %). It renders the exact labels
-   `Sensitivity analysis over modeled business assumptions — not observed
-   retailer costs` and `Results are bounded to the deterministic v2 population
-   and do not generalize to all retailers.`
-9. **Assumptions and limitations** — surfaced verbatim from the report.
+2. **Panel de estado de snapshot real** — si existe un reporte real verificado
+   muestra la revisión fijada, la ruta/versión del manifest, el alcance
+   determinista-acotado, la semántica de stockout y las limitaciones. Cuando
+   existe el reporte **expandido (v2)** se muestra explícitamente con su id de
+   población (`freshretailnet-real-population-v2`), conteos de claves/tiendas/
+   productos, la advertencia de población acotada, la semántica de stockout y un
+   resumen distribucional compacto (mediana/p25/p75/p95 de las métricas de test
+   final y política). Si no existe ningún reporte real, muestra que el modo real
+   no está disponible y da los comandos de recuperación exactos (adquisición →
+   schema report → materialize).
+3. **Demand history** para el SKU seleccionado (desde el fixture).
+4. **Forecast comparison** — pronóstico de test final del modelo seleccionado vs
+   demanda observada, más el pronóstico de despliegue para el próximo horizonte.
+5. **Error metrics** — MAE / RMSE / WMAPE / MASE del reporte.
+6. **Policy comparison** — cada política candidata simulada con nivel de servicio,
+   fill rate, unidades/eventos de stockout y costo total.
+7. **Recommendation** — política seleccionada, cantidad de pedido, servicio / fill
+   / stockouts / costo simulados, estado de la restricción, razón, evidencia y run
+   IDs.
+8. **Robustness (sensitivity over modeled business assumptions)** — se muestra
+   solo cuando existe el reporte de robustez comprometido
+   (`data/evaluations/freshretailnet-robustness-report-v1.0.0.json`). Un selector
+   de escenarios permite comparar `baseline-v1` contra cualquiera de los 12
+   escenarios congelados para el SKU seleccionado (política, cantidad de pedido,
+   reorder point / order-up-to level, servicio, costo) y muestra el resumen entre
+   claves (% de retención de política, % de cambios, % infactibles). Renderiza
+   las etiquetas exactas `Sensitivity analysis over modeled business assumptions
+   — not observed retailer costs` y `Results are bounded to the deterministic v2
+   population and do not generalize to all retailers.`
+9. **Assumptions and limitations** — expuestas textualmente desde el reporte.
 
-The demo visibly distinguishes the **audited source contract**
-(`docs/source-contract.md`, FreshRetailNet-50K), the optional **real
-snapshot reports** (v1, v2, and the robustness report), and the **synthetic
-development fixture** that all charts and numbers use: the fixture is never
-presented as real data, the real reports are never presented as full-dataset
-or production results, and robustness numbers are never presented as observed
-retailer costs.
+La demo distingue visiblemente el **source contract auditado**
+(`docs/source-contract.md`, FreshRetailNet-50K), los **reportes de snapshot
+real** opcionales (v1, v2 y el reporte de robustez) y el **fixture de desarrollo
+sintético** que usan todos los gráficos y números: el fixture nunca se presenta
+como datos reales, los reportes reales nunca se presentan como resultados
+full-dataset o de producción, y los números de robustez nunca se presentan como
+costos de minoristas observados.
 
-## Constraints
+## Restricciones
 
-- Reads ONLY committed files under `data/fixtures/`, `data/manifests/`,
-  `data/evaluations/`, and `data/reports/`. Real raw files in `data/raw/` are
-  NOT read by the demo.
-- **No network access** at runtime.
-- Streamlit is an optional extra; the module imports safely without it. The
-  demo itself requires `--extra demo` to run.
+- Lee SOLO archivos comprometidos bajo `data/fixtures/`, `data/manifests/`,
+  `data/evaluations/` y `data/reports/`. Los archivos crudos reales en
+  `data/raw/` NO son leídos por la demo.
+- **Sin acceso a red** en tiempo de ejecución.
+- Streamlit es un extra opcional; el módulo se importa de forma segura sin él. La
+  demo en sí requiere `--extra demo` para ejecutarse.
 
 ## Run book
 
@@ -100,15 +106,15 @@ uv sync --dev --extra demo
 uv run --extra demo streamlit run scripts/demo_forecast.py
 ```
 
-## Reproducing the reports the demo reads
+## Reproducir los reportes que lee la demo
 
-Fixture report (offline, default):
+Reporte de fixture (offline, por defecto):
 
 ```bash
 uv run python -m retail_demand_inventory.evaluation.materialize
 ```
 
-Real snapshot reports (acquisition needs network once, then offline):
+Reportes de snapshot real (la adquisición necesita red una vez, luego offline):
 
 ```bash
 uv run python -m retail_demand_inventory.data.acquisition \
@@ -120,8 +126,8 @@ uv run python -m retail_demand_inventory.evaluation.materialize \
     --source real --manifest data/manifests/freshretailnet-real.json
 ```
 
-Expanded (v2) real report — opt-in population manifest + dry-run profile, then
-materialize with `--population`:
+Reporte real expandido (v2) — manifest de población opt-in + perfil de dry-run, y
+luego materialize con `--population`:
 
 ```bash
 uv run python -m retail_demand_inventory.data.population_manifest \
@@ -135,8 +141,8 @@ uv run python -m retail_demand_inventory.evaluation.materialize \
     --population data/manifests/freshretailnet-real-population-v2.json
 ```
 
-Robustness report — freeze the scenario matrix, then materialize over the v2
-population:
+Reporte de robustez — congele la matriz de escenarios y luego materialice sobre
+la población v2:
 
 ```bash
 uv run python -m retail_demand_inventory.decisions.scenarios \
@@ -145,23 +151,23 @@ uv run python -m retail_demand_inventory.evaluation.robustness_materialize \
     --source real --scenarios data/manifests/robustness-scenarios-v1.0.0.json
 ```
 
-These regenerate `data/evaluations/experiment_report.json` (fixture),
+Estos regeneran `data/evaluations/experiment_report.json` (fixture),
 `data/evaluations/freshretailnet-real-report.json` (v1),
-`data/evaluations/freshretailnet-real-expanded-report.json` (v2), and
-`data/evaluations/freshretailnet-robustness-report-v1.0.0.json` (robustness)
-deterministically.
+`data/evaluations/freshretailnet-real-expanded-report.json` (v2) y
+`data/evaluations/freshretailnet-robustness-report-v1.0.0.json` (robustez) de
+forma determinista.
 
-## What the demo must NOT claim
+## Qué la demo NO debe afirmar
 
-- No real-world accuracy numbers: every metric is labeled as produced from the
-  synthetic fixture.
-- The real snapshot reports (v1 and v2), when shown, are labeled as
-  deterministic bounded evaluations over the pinned snapshot and are never
-  called full-dataset results.
-- The robustness report, when shown, is labeled `Sensitivity analysis over
-  modeled business assumptions — not observed retailer costs` and `Results are
-  bounded to the deterministic v2 population and do not generalize to all
-  retailers.` It is never presented as observed retailer costs or as a
-  generalization.
-- No assertion that a policy is "best": the demo says the policy was
-  "selected under the protocol objective", never "optimal".
+- Sin números de precisión del mundo real: cada métrica está etiquetada como
+  producida desde el fixture sintético.
+- Los reportes de snapshot real (v1 y v2), cuando se muestran, están etiquetados
+  como evaluaciones deterministas acotadas sobre el snapshot fijado y nunca se
+  llaman resultados full-dataset.
+- El reporte de robustez, cuando se muestra, está etiquetado `Sensitivity
+  analysis over modeled business assumptions — not observed retailer costs` y
+  `Results are bounded to the deterministic v2 population and do not generalize
+  to all retailers.` Nunca se presenta como costos de minoristas observados ni
+  como una generalización.
+- Sin afirmación de que una política sea "la mejor": la demo dice que la política
+  fue "seleccionada bajo el objetivo del protocolo", nunca "óptima".

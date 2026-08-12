@@ -1,5 +1,3 @@
-"""Metric definitions, zero-denominator and undefined behavior."""
-
 from __future__ import annotations
 
 import pytest
@@ -23,7 +21,6 @@ def test_mae_and_rmse_known_values() -> None:
 def test_wmape() -> None:
     actual = [1.0, 2.0, 3.0]
     predicted = [1.5, 2.5, 3.5]
-    # sum|err| = 1.5; sum actual = 6 -> 0.25
     assert wmape(actual, predicted) == pytest.approx(0.25)
 
 
@@ -34,10 +31,9 @@ def test_wmape_zero_denominator_is_none() -> None:
 def test_mase_uses_training_naive_errors() -> None:
     actual = [10.0, 10.0, 10.0]
     predicted = [12.0, 12.0, 12.0]
-    training_naive = training_naive_errors([5.0, 5.0, 5.0])  # mean |err| = 0 -> None
+    training_naive = training_naive_errors([5.0, 5.0, 5.0])
     assert mase(actual, predicted, training_naive) is None
-    training_naive = training_naive_errors([5.0, 7.0, 8.0])  # |err| = 2, 1 -> mean 1.5
-    # MAE = 2 -> MASE = 2/1.5
+    training_naive = training_naive_errors([5.0, 7.0, 8.0])
     assert mase(actual, predicted, training_naive) == pytest.approx(2.0 / 1.5)
 
 

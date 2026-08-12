@@ -1,56 +1,61 @@
 # Product — retail-demand-inventory-decision-engine
 
-Status: **implemented as a synthetic-fixture prototype** (no real data used;
-every reported number is explicitly labeled synthetic).
+Estado: **implementado como prototipo sobre fixture sintético** (sin datos reales
+usados; cada número reportado está explícitamente etiquetado como sintético).
 
-## Platform
+## Plataforma
 
-Web (local demo) + offline analysis pipeline.
+Web (demo local) + pipeline de análisis offline.
 
-## Users
+## Usuarios
 
-- Inventory planners who need a defensible restock recommendation.
-- Technical evaluators who want to verify the forecast and simulation
-  methodology before trusting a number.
-- The author: demonstrating forecasting, simulation, and decision-science
-  skills with reproducible evidence.
+- Planificadores de inventario que necesitan una recomendación de reposición
+  defendible.
+- Evaluadores técnicos que quieren verificar la metodología de pronóstico y
+  simulación antes de confiar en un número.
+- El autor: demostrar habilidades de pronóstico, simulación y ciencia de
+  decisiones con evidencia reproducible.
 
-## Problem
+## Problema
 
-Forecasts and inventory policies are only useful if their evidence is
-auditable. Without a fixed evaluation protocol, any reported improvement can
-be the result of cherry-picking. This product makes the evaluation the
-centerpiece: every replenishment decision is traceable to a scored simulation
-run.
+Los pronósticos y las políticas de inventario solo son útiles si su evidencia es
+auditable. Sin un protocolo de evaluación fijo, cualquier mejora reportada puede
+ser el resultado de cherry-picking. Este producto hace de la evaluación la pieza
+central: cada decisión de reposición es trazable a una ejecución de simulación
+puntuada.
 
-## What it is NOT yet
+## Qué NO es todavía
 
-- Not a forecast service, no API, no production deployment.
-- Not integrated with any live retail system.
-- Not claiming any accuracy on real data (none has been audited yet).
-- Robustness numbers are sensitivity analyses over modeled business
-  assumptions (costs/lead times/service targets), never observed retailer
-  costs.
+- No es un servicio de pronóstico, sin API, sin despliegue de producción.
+- No está integrado con ningún sistema retail en vivo.
+- No afirma ninguna precisión sobre datos reales (ninguno ha sido auditado
+  todavía).
+- Los números de robustez son análisis de sensibilidad sobre supuestos de
+  negocio modelados (costos/tiempos de entrega/objetivos de servicio), nunca
+  costos de minoristas observados.
 
-## Success metric (product)
+## Métrica de éxito (producto)
 
-A reviewer can run one command, see a forecast and a policy simulation with
-baselines, and trace the recommended action to its simulation evidence —
-without reading code.
+Un revisor puede ejecutar un comando, ver un pronóstico y una simulación de
+política con baselines, y trazar la acción recomendada hasta su evidencia de
+simulación — sin leer código.
 
-## Risks
+## Riesgos
 
-- Dataset access: the whole pipeline depends on an audited, licensed source.
-- Methodology trust: unfixable splits would invalidate every result.
+- Acceso al dataset: todo el pipeline depende de una fuente auditada y con
+  licencia.
+- Confianza en la metodología: splits sin fijar invalidarían cada resultado.
 
-## No-goals
+## No-objetivos
 
-- No multi-tenant SaaS, no user accounts.
-- No mobile app.
-- No real-time streaming; batch analysis is the pattern.
+- Sin SaaS multi-tenant, sin cuentas de usuario.
+- Sin aplicación móvil.
+- Sin streaming en tiempo real; el análisis por lotes es el patrón.
 
-## Definition of done
+## Definición de terminado
 
-- [ ] Demo answers "should I restock X and why" with evidence in under a minute.
-- [ ] Every reported number is reproducible with one command.
-- [ ] Baselines and limitations are documented next to results.
+- [ ] La demo responde "¿debería reponer X y por qué?" con evidencia en menos de
+      un minuto.
+- [ ] Cada número reportado es reproducible con un comando.
+- [ ] Los baselines y las limitaciones están documentados junto a los
+      resultados.

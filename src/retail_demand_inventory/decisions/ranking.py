@@ -1,13 +1,3 @@
-"""Policy candidate ranking and selection.
-
-Selection objective (docs/evaluation-protocol.md): **minimize total cost
-subject to simulated service level >= target**. If no candidate reaches the
-target, the selection transparently falls back to the highest-service
-candidate and reports `constraint_satisfied = False`. Deterministic tie-breaks
-only. Nothing here is ever called "optimal" — the chosen policy is selected
-among the generated candidates under a documented rule.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -20,8 +10,6 @@ OBJECTIVE = "minimize total cost subject to the service-level constraint (>= tar
 
 @dataclass(frozen=True)
 class PolicyCandidate:
-    """One policy instance scored by one simulation run."""
-
     policy_id: str
     policy_version: str
     policy_params: Mapping[str, float | int]
@@ -68,8 +56,6 @@ class PolicyCandidate:
 
 @dataclass(frozen=True)
 class SelectionResult:
-    """Full selection record: every candidate, the constraint, and the choice."""
-
     candidates: tuple[PolicyCandidate, ...]
     selected: PolicyCandidate
     target_service_level: float
@@ -93,7 +79,6 @@ class SelectionResult:
 def select_policy(
     candidates: Sequence[PolicyCandidate], target_service_level: float
 ) -> SelectionResult:
-    """Select a policy candidate by the protocol objective with deterministic tie-breaks."""
     if not candidates:
         raise ValueError("cannot select from an empty candidate set")
 

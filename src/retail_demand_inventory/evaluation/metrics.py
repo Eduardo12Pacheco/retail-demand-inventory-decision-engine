@@ -1,18 +1,3 @@
-"""Forecast error metrics.
-
-Per docs/evaluation-protocol.md, a metric that is undefined returns `None`
-(never zero). Definitions:
-
-    MAE   = mean(|a_t - f_t|)
-    RMSE  = sqrt(mean((a_t - f_t)^2))
-    WMAPE = sum(|a_t - f_t|) / sum(a_t)          (None when sum(a_t) == 0)
-    MASE  = MAE / mean(|e_naive|)                (None when the training
-            in-sample naive errors are absent or have zero mean absolute value)
-
-`training_naive_errors` for MASE are the in-sample one-step naive errors
-computed on the training window of the same fold.
-"""
-
 from __future__ import annotations
 
 import math
@@ -64,7 +49,6 @@ def mase(
     predicted: Sequence[float],
     training_naive_errors: Sequence[float] | None,
 ) -> float | None:
-    """MASE using in-sample naive errors from the same fold's training window."""
     errors = _abs_errors(actual, predicted)
     if not errors:
         return None
@@ -79,7 +63,6 @@ def mase(
 
 
 def training_naive_errors(series: Sequence[float]) -> tuple[float, ...]:
-    """In-sample one-step naive errors: |x_t - x_{t-1}| for t >= 1."""
     if len(series) < 2:
         return ()
     return tuple(
@@ -96,7 +79,6 @@ def compute_metrics(
     predicted: Sequence[float],
     training_naive_errors: Sequence[float] | None,
 ) -> dict[str, float | None]:
-    """Compute the four protocol metrics in one call."""
     return {
         "mae": mae(actual, predicted),
         "rmse": rmse(actual, predicted),

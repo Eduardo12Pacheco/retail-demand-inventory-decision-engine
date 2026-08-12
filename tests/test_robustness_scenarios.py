@@ -1,5 +1,3 @@
-"""Robustness scenario manifest: generation, validation, checksum, ordering."""
-
 from __future__ import annotations
 
 import json
@@ -89,7 +87,6 @@ def test_baseline_config_reproduces_current_reference(scenarios) -> None:
     assert baseline.demand_stress["scale"] == 1.0
     assert baseline.demand_stress["scope"] == DEMAND_STRESS_SCOPE
     assert baseline.changed_parameters == ()
-    # exact reference values match the committed protocol constants
     assert REFERENCE_SERVICE_TARGET == 0.90
     assert REFERENCE_LEAD_TIME_DAYS == 3
     assert REFERENCE_REVIEW_PERIOD_DAYS == 1

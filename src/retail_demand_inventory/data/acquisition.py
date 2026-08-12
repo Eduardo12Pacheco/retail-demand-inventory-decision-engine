@@ -1,33 +1,3 @@
-"""Acquire and verify the pinned real-data snapshot into ignored data/raw.
-
-Command (download + verify, then record observed checksums in the manifest):
-
-    python -m retail_demand_inventory.data.acquisition \\
-        --manifest data/manifests/freshretailnet-real.json \\
-        --output-dir data/raw
-
-Offline verification of an already-populated raw directory:
-
-    python -m retail_demand_inventory.data.acquisition \\
-        --manifest data/manifests/freshretailnet-real.json \\
-        --output-dir data/raw --mode verify
-
-Behavior:
-
-- Resolves the exact revision-pinned HTTPS URLs from the manifest.
-- Downloads train.parquet and eval.parquet into the ignored output directory
-  (reuses an existing byte-identical local file).
-- Verifies existence, EXACT byte size, and the RAW SHA-256 over the untouched
-  bytes (raw checksums are computed before any normalization; bytes are never
-  rewritten before hashing).
-- Verifies pinned-revision metadata: the resolve endpoint must report
-  `x-repo-commit == pinned_revision` and `x-linked-size == expected_size`.
-- Fails clearly on any mismatch.
-- On success records observed sizes/SHA-256 and sets the `snapshot_verified`
-  gate in the manifest (unless `--no-update-manifest`).
-- Verify-only mode never touches the network.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -52,7 +22,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class AcquisitionError(RuntimeError):
-    """Raised when acquisition or verification fails."""
+    pass
 
 
 def _fatal(message: str, *, exit_code: int = 1) -> NoReturn:
@@ -61,10 +31,6 @@ def _fatal(message: str, *, exit_code: int = 1) -> NoReturn:
 
 
 def _peek_headers(url: str) -> tuple[str, str]:
-    """Fetch HTTP headers for `url` without following redirects.
-
-    Returns (x-repo-commit, x-linked-size) observed on the resolve response.
-    """
     request = urllib.request.Request(
         url, method="HEAD", headers={"User-Agent": USER_AGENT}
     )
@@ -94,11 +60,6 @@ def _verify_local(
     entry,
     local: Path,
 ) -> tuple[str, str]:
-    """Verify one local raw file against expected AND observed checksums.
-
-    A missing observed checksum is a hard failure in real mode.
-    Returns (observed_size, observed_sha256).
-    """
     if not local.exists():
         raise AcquisitionError(f"raw file {entry.name!r} not found: {local}")
     if entry.observed_size is None or entry.observed_sha256 is None:
@@ -180,7 +141,6 @@ def acquire(
     download: bool,
     update_manifest: bool,
 ) -> RealSnapshotManifest:
-    """Run acquisition/verification; returns the (possibly updated) manifest."""
     manifest = load_real_manifest(manifest_path)
     if download:
         print(f"acquiring {manifest.dataset_id} @ {manifest.pinned_revision}")

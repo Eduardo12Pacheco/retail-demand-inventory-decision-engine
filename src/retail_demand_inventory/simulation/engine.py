@@ -1,27 +1,3 @@
-"""Deterministic daily lost-sales inventory simulator.
-
-Timeline of each simulated day (documented in docs/evaluation-protocol.md):
-
-1. **Arrivals**: orders whose lead time elapsed arrive at the start of the
-   day and add to on-hand inventory.
-2. **Demand**: the day's demand is served from on-hand inventory. Demand
-   beyond on-hand is **lost, not backlogged**.
-3. **Review/order**: on review days (day index % review_period == 0) the
-   policy sees the inventory position (on-hand + in-transit) and may place an
-   order. An order placed on day `t` arrives at the start of day `t + lead_time`.
-4. **Costs**: holding cost on end-of-day on-hand inventory, stockout cost on
-   lost units, ordering cost per order placed.
-
-Assumptions (explicit, never silently changed): demand is exogenous and
-independent of inventory; lead time is constant; supply is unlimited; no
-perishability, quantity discounts, or capacity limits; review happens after
-demand (end-of-period review).
-
-Every run is fully auditable: a deterministic `run_id` covers config, policy,
-versions, seed, and the demand source, and the outcome records daily states,
-orders, arrivals, and all cost components.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -40,13 +16,11 @@ def _add_days(day: date, days: int) -> date:
 
 
 class SimulationError(ValueError):
-    """Raised when a simulation input is invalid."""
+    pass
 
 
 @dataclass(frozen=True)
 class SimulationConfig:
-    """Fixed parameters of one simulation run."""
-
     sku: str
     initial_inventory: float
     lead_time_days: int
@@ -69,12 +43,10 @@ class SimulationConfig:
 
 @dataclass(frozen=True)
 class DemandSource:
-    """Where the simulated demand came from (for auditability)."""
-
-    kind: str  # "observed" | "forecast" | "synthetic"
+    kind: str
     model_id: str | None = None
     model_version: str | None = None
-    reference: str | None = None  # e.g. run_id or fold label
+    reference: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -87,8 +59,6 @@ class DemandSource:
 
 @dataclass(frozen=True)
 class SimulationInput:
-    """Everything a run needs: demand, config, policy, and provenance."""
-
     dates: tuple[date, ...]
     demand: tuple[float, ...]
     config: SimulationConfig
@@ -109,8 +79,6 @@ class SimulationInput:
 
 @dataclass(frozen=True)
 class DailyState:
-    """One day's full simulation state."""
-
     date: date
     demand: float
     starting_inventory: float
@@ -151,7 +119,6 @@ def compute_run_id(
     demand: Sequence[float],
     demand_source: DemandSource,
 ) -> str:
-    """Deterministic audit run ID covering config, policy, versions, seed, and demand."""
     payload = {
         "sku": sku,
         "config": config.to_dict(),
@@ -170,15 +137,9 @@ def compute_run_id(
 
 
 def simulate(input_: SimulationInput) -> SimulationOutcome:
-    """Run the daily lost-sales simulation and aggregate outcomes.
-
-    Deterministic: demand is given, the policy is stateless, and the only RNG
-    usage (a fixed `random.Random(seed)`) is reserved for documented future
-    stochastic extensions; it does not influence today's results.
-    """
     config = input_.config
     on_hand = config.initial_inventory
-    pipeline: list[tuple[int, float]] = []  # (arrival_day_index, quantity)
+    pipeline: list[tuple[int, float]] = []
 
     orders: list[OrderEvent] = []
     arrivals: list[ArrivalEvent] = []
@@ -227,8 +188,6 @@ def simulate(input_: SimulationInput) -> SimulationOutcome:
                     arrival_date=_add_days(day, config.lead_time_days),
                 )
             )
-        # Orders whose arrival falls beyond the simulated horizon are still
-        # recorded so the run is fully auditable; they are simply not rendered.
 
         holding_cost_today = on_hand * config.holding_cost_per_unit_per_day
         stockout_cost_today = lost * config.stockout_cost_per_unit

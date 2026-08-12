@@ -1,10 +1,3 @@
-"""Focused offline tests for demo robustness helpers vs the committed report.
-
-The demo is fixture-default: its two fixture SKUs (`1001|38`, `1002|65`) have
-no counterpart in the real v2 robustness report, so per-key comparisons must
-degrade to a bounded scenario-level summary instead of crashing.
-"""
-
 from __future__ import annotations
 
 import importlib.util

@@ -1,5 +1,3 @@
-"""Shared test fixtures."""
-
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -41,7 +39,6 @@ def make_table(
     start: date = date(2024, 1, 1),
     category: str | None = "cat-1",
 ) -> DemandTable:
-    """Build a daily `DemandTable` for one SKU starting at `start`."""
     records = [
         DemandRecord(
             sku=sku,

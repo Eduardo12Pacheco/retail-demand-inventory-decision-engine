@@ -1,6 +1,3 @@
-"""Expanded (v2) population selection: store cap, target, exclusion reasons,
-no-outcomes, and population-manifest validation against the source."""
-
 from __future__ import annotations
 
 from datetime import date
@@ -80,7 +77,6 @@ def test_expanded_selection_preserves_v1_keys(tmp_path) -> None:
     raw.mkdir()
     write_expanded_raw(raw, stores=3, products=12)
     selection = _expanded(raw, per_store_cap=10, target_keys=20)
-    # v1 = first 10 keys globally sorted = store 0's first 10 products.
     v1 = ("0|0", "0|1", "0|2", "0|3", "0|4", "0|5", "0|6", "0|7", "0|8", "0|9")
     assert all(key in selection.selected_keys for key in v1)
     assert selection.selected_keys[:10] == v1

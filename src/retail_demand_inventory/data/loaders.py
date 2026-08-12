@@ -1,21 +1,3 @@
-"""Deterministic loaders for canonical demand data.
-
-Two entry points:
-
-- `load_canonical_csv`: reads the committed synthetic fixture (and any CSV in
-  the same canonical schema). Pure Python `csv`, no third-party dependency,
-  fully deterministic.
-- FreshRetailNet path: `FreshRetailNetRowMapper` maps a raw source row
-  (as read from the audited dataset, which is never downloaded by this repo)
-  into a `DemandRecord`, and `load_fresh_retail_net` streams a source-shaped
-  CSV through the mapper, fills internal missing days with explicit zeros, and
-  builds a validated `DemandTable`. No network access is ever performed.
-
-Missing-day policy (documented in docs/source-contract.md): an internal gap
-within a SKU's span is filled with `demand_units = 0.0` and
-`stockout_flag = None`, because a missing record is not evidence of a stockout.
-"""
-
 from __future__ import annotations
 
 import csv
@@ -35,7 +17,6 @@ from .contracts import (
 
 CANONICAL_COLUMNS = ("sku", "date", "demand_units", "category", "stockout_flag")
 
-# FreshRetailNet source fields actually consumed by the canonical mapping.
 FRESH_RETAIL_NET_USED_FIELDS = (
     "dt",
     "store_id",
@@ -48,7 +29,7 @@ FRESH_RETAIL_NET_USED_FIELDS = (
 
 
 class LoaderError(ValueError):
-    """Raised when a source row cannot be mapped into the canonical schema."""
+    pass
 
 
 def _parse_date(value: str, where: str) -> date:
@@ -84,7 +65,6 @@ def _parse_stockout_flag(value: str | None) -> bool | None:
 
 
 def parse_canonical_row(row: Mapping[str, object], where: str) -> DemandRecord:
-    """Build a `DemandRecord` from a canonical-schema row mapping."""
     sku = str(row.get("sku") or "").strip()
     if not sku:
         raise LoaderError(f"{where}: sku must be a non-empty string")
@@ -118,11 +98,6 @@ def parse_canonical_row(row: Mapping[str, object], where: str) -> DemandRecord:
 def load_canonical_csv(
     path: Path, *, require_daily_cadence: bool = True
 ) -> DemandTable:
-    """Load a canonical-schema CSV into a validated `DemandTable`.
-
-    Expected columns: `sku,date,demand_units[,category,stockout_flag]`.
-    Column order does not matter; missing optional columns default to None.
-    """
     records: list[DemandRecord] = []
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -141,22 +116,6 @@ def load_canonical_csv(
 
 
 class FreshRetailNetRowMapper:
-    """Maps a FreshRetailNet source row into a canonical `DemandRecord`.
-
-    Canonical mapping (docs/source-contract.md):
-        sku          <- f"{store_id}|{product_id}"
-        date         <- dt
-        demand_units <- sale_amount (globally normalized float, non-negative)
-        category     <- first_category_id
-        stockout_flag<- derived from hours_stock_status / stock_hour6_22_cnt
-
-    The stockout-day rule is intentionally conservative and documented: a day
-    is flagged as a stockout day when the source reports at least one
-    out-of-stock hour in the trading window. The exact rule will be re-audited
-    against the real bytes at ingestion time; the mapper accepts an explicit
-    `stockout_threshold` so the rule is a parameter, not a hidden constant.
-    """
-
     def __init__(self, *, stockout_threshold_hours: int = 1) -> None:
         self.stockout_threshold_hours = stockout_threshold_hours
 
@@ -235,12 +194,6 @@ def load_fresh_retail_net(
     stockout_threshold_hours: int = 1,
     require_daily_cadence: bool = True,
 ) -> DemandTable:
-    """Load a FreshRetailNet-shaped CSV into a validated canonical table.
-
-    `path` must be a local file in the source row schema (comma-separated with
-    a header containing at least the used fields). No network access.
-    Internal missing days are filled with explicit zero-demand records.
-    """
     mapper = FreshRetailNetRowMapper(stockout_threshold_hours=stockout_threshold_hours)
     records: list[DemandRecord] = []
     with path.open("r", encoding="utf-8", newline="") as handle:

@@ -1,152 +1,165 @@
-# Decision Robustness Protocol — retail-demand-inventory-decision-engine
+# Protocolo de robustez de decisiones — retail-demand-inventory-decision-engine
 
-Status: **implemented (scenario manifest `robustness-scenarios-v1.0.0`,
-protocol version 1.0)** — the scenario matrix was frozen BEFORE any robustness
-metric was materialized.
+Estado: **implementado (manifest de escenarios `robustness-scenarios-v1.0.0`,
+versión 1.0 del protocolo)** — la matriz de escenarios se congeló ANTES de que se
+materializara cualquier métrica de robustez.
 
-## Purpose
+## Propósito
 
-Decision robustness measures how the replenishment decision layer responds to
-**modeled business assumptions**: service targets, cost multipliers, lead
-times, review cadence, and a forecast-stress demand scale. It re-runs the
-decision pipeline over the **existing v2 population** with the same source
-facts, forecasts, candidate policies, seed, horizon, and folds, varying only
-the declared assumption of each scenario. It answers: *does the selected policy
-(and its order quantity / reorder point) change under plausible assumption
-changes?*
+La robustez de decisiones mide cómo responde la capa de decisión de reposición a
+**supuestos de negocio modelados**: objetivos de servicio, multiplicadores de
+costo, tiempos de entrega, cadencia de revisión y una escala de demanda de estrés
+de pronóstico. Re-ejecuta el pipeline de decisión sobre la **población v2
+existente** con los mismos hechos de fuente, pronósticos, políticas candidatas,
+seed, horizonte y folds, variando solo el supuesto declarado de cada escenario.
+Responde: *¿cambia la política seleccionada (y su cantidad de pedido / reorder
+point) bajo cambios plausibles de supuestos?*
 
-**Modeled costs, lead times, and service targets are NOT observed retailer
-facts.** They are documented assumptions from `docs/evaluation-protocol.md`,
-multiplied by scenario multipliers for this analysis.
+**Los costos, tiempos de entrega y objetivos de servicio modelados NO son hechos
+de minoristas observados.** Son supuestos documentados de
+`docs/evaluation-protocol.md`, multiplicados por multiplicadores de escenario
+para este análisis.
 
-## Quick path
+## Ruta rápida
 
-1. Freeze the matrix: `data/manifests/robustness-scenarios-v1.0.0.json` (typed
-   generator: `src/retail_demand_inventory/decisions/scenarios.py`).
-2. Materialize:
+1. Congele la matriz: `data/manifests/robustness-scenarios-v1.0.0.json` (generador
+   tipado: `src/retail_demand_inventory/decisions/scenarios.py`).
+2. Materialice:
    `uv run python -m retail_demand_inventory.evaluation.robustness_materialize
    --source real --scenarios data/manifests/robustness-scenarios-v1.0.0.json`
-3. Read `data/evaluations/freshretailnet-robustness-report-v1.0.0.json`; the
-   baseline-v1 scenario must equal the current v2 decisions.
+3. Lea `data/evaluations/freshretailnet-robustness-report-v1.0.0.json`; el
+   escenario baseline-v1 debe igualar las decisiones v2 actuales.
 
-## Source facts vs modeled assumptions
+## Hechos de fuente vs supuestos modelados
 
-| Kind | Item | Origin |
+| Tipo | Ítem | Origen |
 | --- | --- | --- |
-| Source fact | Pinned revision, raw SHA-256, canonical checksum | `data/manifests/freshretailnet-real.json` + verified `data/raw/` |
-| Source fact | v2 population (100 keys / 10 stores / 40 products) | `data/manifests/freshretailnet-real-population-v2.json` |
-| Source fact | Stockout derivation (`stock_hour6_22_cnt > 0`; zero sales never imply a stockout) | audited source contract |
-| Source fact | Observed-sales semantics (censored demand documented, not recovered) | `docs/source-contract.md` |
-| Modeled assumption | Service targets, cost multipliers, lead/review, demand stress | scenario manifest (this analysis) |
-| Modeled assumption | Baseline costs 0.10/2.00/5.00 per unit | `docs/evaluation-protocol.md` |
+| Hecho de fuente | Revisión fijada, SHA-256 crudo, checksum canónico | `data/manifests/freshretailnet-real.json` + `data/raw/` verificado |
+| Hecho de fuente | Población v2 (100 claves / 10 tiendas / 40 productos) | `data/manifests/freshretailnet-real-population-v2.json` |
+| Hecho de fuente | Derivación de stockout (`stock_hour6_22_cnt > 0`; las ventas cero nunca implican un stockout) | source contract auditado |
+| Hecho de fuente | Semántica de ventas observadas (demanda censurada documentada, no recuperada) | `docs/source-contract.md` |
+| Supuesto modelado | Objetivos de servicio, multiplicadores de costo, lead/review, estrés de demanda | manifest de escenarios (este análisis) |
+| Supuesto modelado | Costos baseline 0.10/2.00/5.00 por unidad | `docs/evaluation-protocol.md` |
 
-The report separates the two: top-level `source_facts` (never changed by any
-scenario) and `modeled_assumptions` (varied). **Nothing in the cost/lead/service
-columns is observed retailer data.**
+El reporte separa los dos: `source_facts` de nivel superior (nunca cambiados por
+ningún escenario) y `modeled_assumptions` (variados). **Nada en las columnas de
+costo/lead/servicio son datos de minoristas observados.**
 
-## Baseline exact configuration
+## Configuración exacta de baseline
 
-`baseline-v1` is the exact current reference and must reproduce the current v2
-decisions:
+`baseline-v1` es la referencia actual exacta y debe reproducir las decisiones v2
+actuales:
 
-- Service target `0.90`; lead time `3` days; review period `1` day.
-- Holding `0.10` / unit / day; stockout `2.00` / lost unit; ordering `5.00` /
-  order (multipliers `1.0`).
-- Selection demand: observed last-validation-fold demand, **unscaled**.
-- Deployment/simulation demand: the deployment forecast, **unscaled**; the
-  `{0.9, 1.0, 1.1}` sensitivity scales apply as in the primary protocol.
+- Objetivo de servicio `0.90`; lead time `3` días; período de revisión `1` día.
+- Tenencia `0.10` / unidad / día; stockout `2.00` / unidad perdida; pedido `5.00` /
+  pedido (multiplicadores `1.0`).
+- Demanda de selección: demanda observada del último fold de validación,
+  **sin escala**.
+- Demanda de despliegue/simulación: el pronóstico de despliegue, **sin escala**;
+  las escalas de sensibilidad `{0.9, 1.0, 1.1}` se aplican como en el protocolo
+  principal.
 
-## The frozen scenario matrix (12 scenarios)
+## La matriz de escenarios congelada (12 escenarios)
 
-Stable IDs; one-factor-at-a-time plus joint stress cases. Baseline first, then
-OFAT cost, lead, review, service, one joint case, and demand stress last. All
-other parameters are invariant (see below).
+IDs estables; un factor a la vez más casos de estrés conjuntos. Baseline primero,
+luego costo OFAT, lead, review, servicio, un caso conjunto y estrés de demanda al
+final. Todos los demás parámetros son invariantes (ver más abajo).
 
-| ID | Change from baseline | Rationale |
+| ID | Cambio respecto al baseline | Racional |
 | --- | --- | --- |
-| `baseline-v1` | none (exact current reference) | Reproduces current v2 decisions; comparison reference |
-| `holding-high` | holding multiplier `2.0` | Higher holding should reduce inventory coverage |
-| `stockout-high` | stockout multiplier `2.0` | Higher stockout should raise service coverage |
-| `ordering-high` | ordering multiplier `2.0` | Higher fixed order cost favors larger, less frequent orders |
-| `costs-low` | holding/stockout/ordering `0.5` | Uniform deflation: checks selection is not scale-driven |
-| `lead-short` | lead time `2` days | Shorter supply lead |
-| `lead-long` | lead time `5` days | Longer supply lead |
-| `review-weekly` | review period `7` days | Weekly review cadence |
-| `lead-review-long` | lead `5` and review `7` (joint stress) | Compounds lead + review stress |
-| `service-085` | service target `0.85` | Relaxed decision target |
-| `service-095` | service target `0.95` | Tightened decision target |
-| `demand-stress-high` | demand scale `1.30` (scenario simulation only) | 30% forecast-stress on the deployment/simulation window |
+| `baseline-v1` | ninguno (referencia actual exacta) | Reproduce las decisiones v2 actuales; referencia de comparación |
+| `holding-high` | multiplicador de tenencia `2.0` | Mayor tenencia debería reducir la cobertura de inventario |
+| `stockout-high` | multiplicador de stockout `2.0` | Mayor stockout debería elevar la cobertura de servicio |
+| `ordering-high` | multiplicador de pedido `2.0` | Mayor costo fijo de pedido favorece pedidos más grandes y menos frecuentes |
+| `costs-low` | tenencia/stockout/pedido `0.5` | Deflación uniforme: verifica que la selección no esté impulsada por escala |
+| `lead-short` | lead time `2` días | Lead de suministro más corto |
+| `lead-long` | lead time `5` días | Lead de suministro más largo |
+| `review-weekly` | período de revisión `7` días | Cadencia de revisión semanal |
+| `lead-review-long` | lead `5` y review `7` (estrés conjunto) | Combina el estrés de lead + review |
+| `service-085` | objetivo de servicio `0.85` | Objetivo de decisión relajado |
+| `service-095` | objetivo de servicio `0.95` | Objetivo de decisión endurecido |
+| `demand-stress-high` | escala de demanda `1.30` (solo simulación de escenario) | 30% de estrés de pronóstico en la ventana de despliegue/simulación |
 
-## Unchanged protocol parameters (invariant)
+## Parámetros de protocolo sin cambios (invariantes)
 
-Source facts, the v2 population, forecast models/versions (`naive`,
-`moving_average`, `ses`, `hist_gradient_boosting`), candidate policy
-families/versions, horizon `7`, temporal folds (expanding origins, final test
-untouched), seed `20260811`, and observed selection-window semantics. The
-backtest is computed once per population and reused; **no forecast is retrained
-and no policy is tuned from scenario outcomes.**
+Hechos de fuente, la población v2, modelos/versiones de pronóstico (`naive`,
+`moving_average`, `ses`, `hist_gradient_boosting`), familias/versiones de
+políticas candidatas, horizonte `7`, folds temporales (orígenes expansivos, test
+final intacto), seed `20260811` y semántica observada de la ventana de selección.
+El backtest se calcula una vez por población y se reutiliza; **ningún pronóstico
+se re-entrena y ninguna política se ajusta a partir de los resultados de los
+escenarios.**
 
-## v2 evaluation population
+## Población de evaluación v2
 
-The exact v2 population from `freshretailnet-real-population-v2.json`
-(100 store-product keys across 10 stores, 40 products, ~9,700 canonical rows).
-Selection uses metadata only; results are bounded to these keys and do not
-generalize to all retailers.
+La población v2 exacta de `freshretailnet-real-population-v2.json` (100 claves de
+tienda-producto en 10 tiendas, 40 productos, ~9,700 filas canónicas). La
+selección usa solo metadatos; los resultados están acotados a estas claves y no
+generalizan a todos los minoristas.
 
-## Selection objective and tie-break
+## Objetivo de selección y desempate
 
-Objective: **minimize total cost subject to simulated service level ≥ scenario
-target**; infeasible → transparent highest-service fallback with
-`constraint_satisfied = false`. Feasible tie-break: lower total cost, then
-lower stockout units, then lower avg inventory, then smaller run ID. Fallback
-tie-break: highest service, then lower cost, then smaller run ID. Selection is
-among generated candidates and is never labeled optimal.
+Objetivo: **minimizar el costo total sujeto a nivel de servicio simulado ≥
+objetivo del escenario**; infactible → fallback transparente de mayor servicio
+con `constraint_satisfied = false`. Desempate factible: menor costo total, luego
+menores unidades de stockout, luego menor inventario promedio, luego run ID
+menor. Desempate de fallback: mayor servicio, luego menor costo, luego run ID
+menor. La selección es entre candidatos generados y nunca se etiqueta como óptima.
 
-## Scenario-only demand stress
+## Estrés de demanda solo en escenario
 
-`demand-stress-high` models `scale 1.30` **only on the deployment/simulation
-stress window**: the recommendation simulation and the `{0.9, 1.0, 1.1}`
-sensitivity runs use the deployment forecast multiplied by `1.30` (effective
-sensitivity scales `1.17 / 1.30 / 1.43`). Source demand, forecast training,
-final-test evaluation, and **policy candidate selection** are untouched —
-selection always uses the observed selection-window demand unscaled.
+`demand-stress-high` modela `scale 1.30` **solo en la ventana de estrés de
+despliegue/simulación**: la simulación de la recomendación y las ejecuciones de
+sensibilidad `{0.9, 1.0, 1.1}` usan el pronóstico de despliegue multiplicado por
+`1.30` (escalas de sensibilidad efectivas `1.17 / 1.30 / 1.43`). La demanda de
+fuente, el entrenamiento de pronóstico, la evaluación de test final y la
+**selección de políticas candidatas** no se tocan — la selección siempre usa la
+demanda observada de la ventana de selección sin escala.
 
-## Interpretation rules
+## Reglas de interpretación
 
-- Compare each scenario against `baseline-v1` **per key**; deltas are scenario
-  minus baseline on the deployment-window recommendation outcome.
-- `policy_retained` means the same `policy_id` was selected; a change in params
-  alone is recorded in `trigger_level`/`order_quantity` deltas.
-- Relative deltas are undefined (reported `null`) when the baseline value is 0.
-- Feasibility/fallback counts come from the selection result, not the
-  deployment outcome.
-- `observed_tradeoffs` are neutral descriptive summaries (cost vs service,
-  inventory vs fill, stockouts vs holding). **Nothing is a Pareto or optimality
-  claim.**
+- Compare cada escenario contra `baseline-v1` **por clave**; los deltas son
+  escenario menos baseline sobre el resultado de la recomendación en la ventana
+  de despliegue.
+- `policy_retained` significa que se seleccionó el mismo `policy_id`; un cambio
+  solo de parámetros se registra en los deltas de `trigger_level`/`order_quantity`.
+- Los deltas relativos están indefinidos (reportados `null`) cuando el valor de
+  baseline es 0.
+- Los conteos de factibilidad/fallback provienen del resultado de selección, no
+  del resultado de despliegue.
+- `observed_tradeoffs` son resúmenes descriptivos neutrales (costo vs servicio,
+  inventario vs fill, stockouts vs tenencia). **Nada es una afirmación de Pareto
+  ni de optimalidad.**
 
-## Deterministic serialization and timestamps
+## Serialización determinista y timestamps
 
-Fixed seed, fixed protocol, and the documented deterministic timestamp
-(`SOURCE_DATE_EPOCH` when set, else `2026-08-11T00:00:00+00:00`); sorted-key
-JSON with fixed indentation. Two identical runs produce byte-identical reports.
-The scenario manifest records a stable `content_sha256` over its canonical
-serialization. Runtime is recorded as a documented constant, never a
-wall-clock number, so repeated output stays byte-identical.
+Seed fijo, protocolo fijo y el timestamp determinista documentado
+(`SOURCE_DATE_EPOCH` cuando se define, si no `2026-08-11T00:00:00+00:00`); JSON
+con claves ordenadas e indentación fija. Dos ejecuciones idénticas producen
+reportes byte-idénticos. El manifest de escenarios registra un `content_sha256`
+estable sobre su serialización canónica. El runtime se registra como una
+constante documentada, nunca un número de wall-clock, para que la salida repetida
+permanezca byte-idéntica.
 
-## Limitations
+## Limitaciones
 
-- All numbers are sensitivity analyses over the deterministic v2 population;
-  they are NOT observed retailer costs and do not generalize.
-- Modeled costs/lead times/service targets are assumptions, not measured facts.
-- The demand-stress scenario is a modeled forecast-stress assumption; it does
-  not alter source demand or training.
-- No optimality/Pareto claim; summaries are neutral observations.
-- Raw data stays in the gitignored `data/raw/`; only checksums are committed.
+- Todos los números son análisis de sensibilidad sobre la población v2
+  determinista; NO son costos de minoristas observados y no generalizan.
+- Los costos/tiempos de entrega/objetivos de servicio modelados son supuestos, no
+  hechos medidos.
+- El escenario de estrés de demanda es un supuesto modelado de estrés de
+  pronóstico; no altera la demanda de fuente ni el entrenamiento.
+- Sin afirmación de optimalidad/Pareto; los resúmenes son observaciones
+  neutrales.
+- Los datos crudos permanecen en el `data/raw/` gitignored; solo se comprometen
+  checksums.
 
-## Definition of done
+## Definición de terminado
 
-- [x] Scenario matrix frozen and committed before metrics are materialized.
-- [x] `baseline-v1` reproduces the current v2 decisions.
-- [x] One command reproduces the report byte-identically.
-- [x] Source facts and modeled assumptions are separated in the report.
-- [x] Robustness report is distinct and never overwrites v1/v2 reports.
+- [x] Matriz de escenarios congelada y comprometida antes de materializar
+      métricas.
+- [x] `baseline-v1` reproduce las decisiones v2 actuales.
+- [x] Un comando reproduce el reporte byte-idéntico.
+- [x] Los hechos de fuente y los supuestos modelados están separados en el
+      reporte.
+- [x] El reporte de robustez es distinto y nunca sobrescribe los reportes v1/v2.

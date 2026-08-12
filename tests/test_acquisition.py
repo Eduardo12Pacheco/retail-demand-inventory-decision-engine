@@ -1,5 +1,3 @@
-"""Acquisition: offline verify-only mode, checksum/observed rules, revision."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,7 +33,7 @@ def test_verify_only_mode_ok_without_network(
     before = manifest_path.read_bytes()
     manifest = acquire(manifest_path, raw, download=False, update_manifest=True)
     assert all(manifest.gates.values())
-    assert manifest_path.read_bytes() == before  # verify-only never writes
+    assert manifest_path.read_bytes() == before
 
 
 def test_verify_only_missing_observed_checksum_fails(
@@ -95,7 +93,7 @@ def test_download_mode_reuses_existing_verified_files(
     before = manifest_path.read_bytes()
     manifest = acquire(manifest_path, raw, download=True, update_manifest=False)
     assert all(manifest.gates.values())
-    assert manifest_path.read_bytes() == before  # --no-update-manifest
+    assert manifest_path.read_bytes() == before
 
 
 def test_download_mode_headers_detect_wrong_revision(

@@ -1,23 +1,3 @@
-"""Decision robustness aggregation over scenario/key sections.
-
-These helpers turn the per-scenario/per-key robustness sections (built by
-`evaluation/robustness_materialize.py`) into cross-key summaries:
-
-- per-key baseline comparison (baseline-v1 vs every other scenario),
-- policy retention/change, order-quantity and trigger-level (reorder point or
-  order-up-to level) relative deltas, and service/cost/stockout deltas,
-- aggregate retention/change %, constraint satisfaction, infeasible/fallback %,
-- quantiles p25/p50/p75/p95 for order/cost/service/stockout changes,
-- the baseline-to-scenario policy transition matrix,
-- neutral `observed_tradeoffs` summaries (cost vs service, inventory vs fill,
-  stockouts vs holding).
-
-Nothing here is ever called Pareto-optimal or optimal: the summaries are
-descriptive observations over the deterministic v2 population under the frozen
-scenario matrix. `robustness_analysis` refuses to run if a scenario is missing
-keys (no hidden filtering is ever allowed).
-"""
-
 from __future__ import annotations
 
 from collections import Counter
@@ -34,7 +14,6 @@ QUANTILE_LEVELS = (25, 50, 75, 95)
 
 
 def _ensure_complete_keys(scenarios: Mapping[str, Mapping[str, object]]) -> None:
-    """Reject any scenario that is missing or gains keys (no hidden filtering)."""
     ids = list(scenarios)
     if BASELINE_SCENARIO_ID not in ids:
         raise ValueError(
@@ -78,7 +57,6 @@ def _quantiles(values: Sequence[float | None]) -> dict[str, float | None]:
 
 
 def _section_metrics(section: Mapping[str, object]) -> dict[str, object]:
-    """The deployment-window recommendation metrics used for comparison."""
     rec = dict(section["recommendation"])
     selection = dict(section["selection"])
     return {
@@ -100,7 +78,6 @@ def _section_metrics(section: Mapping[str, object]) -> dict[str, object]:
 def per_key_baseline_comparison(
     scenarios: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
-    """Baseline-vs-scenario per-key comparison for every non-baseline scenario."""
     baseline = {
         key: _section_metrics(section)
         for key, section in scenarios[BASELINE_SCENARIO_ID].items()
@@ -183,7 +160,6 @@ def per_key_baseline_comparison(
 
 
 def _summary_stats(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
-    """Quantiles plus a full distribution snapshot over delta rows."""
     return {
         "quantiles": {
             "order_quantity_relative_delta": _quantiles(
@@ -226,7 +202,6 @@ def _summary_stats(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
 
 
 def aggregate_summary(comparison: Mapping[str, object]) -> dict[str, object]:
-    """Per-scenario and overall retention/feasibility/fallback/delta summaries."""
     overall_retained = 0
     overall_pairs = 0
     overall_satisfied = 0
@@ -306,7 +281,6 @@ def aggregate_summary(comparison: Mapping[str, object]) -> dict[str, object]:
 
 
 def transition_matrix(comparison: Mapping[str, object]) -> dict[str, object]:
-    """Baseline-policy -> scenario-policy transition counts per scenario."""
     out: dict[str, object] = {}
     aggregate: dict[str, Counter] = {}
     for scenario_id in SCENARIO_ORDER:
@@ -340,10 +314,6 @@ def transition_matrix(comparison: Mapping[str, object]) -> dict[str, object]:
 def observed_tradeoffs(
     scenarios: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
-    """Neutral descriptive trade-off summaries per scenario and across scenarios.
-
-    These are observations over the frozen matrix, never Pareto claims.
-    """
     per_scenario: dict[str, object] = {}
     cross: dict[str, dict[str, object]] = {}
     for scenario_id in SCENARIO_ORDER:
@@ -424,7 +394,6 @@ def observed_tradeoffs(
 def robustness_analysis(
     scenarios: Mapping[str, Mapping[str, object]],
 ) -> dict[str, object]:
-    """Compose the full robustness analysis over scenario/key sections."""
     _ensure_complete_keys(scenarios)
     comparison = per_key_baseline_comparison(scenarios)
     return {

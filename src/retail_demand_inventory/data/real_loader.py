@@ -1,32 +1,3 @@
-"""Parquet schema inspection and deterministic canonical loading for a pinned
-real-data snapshot (FreshRetailNet-50K).
-
-This module reads ONLY the columns needed for the canonical demand record plus
-the stockout derivation, maps them deterministically into the canonical
-`DemandRecord` schema, and never fabricates a stockout flag:
-
-- `sku`        <- `"{store_id}|{product_id}"`
-- `date`       <- `dt`
-- `demand_units` <- `sale_amount` (non-negative finite float; observed sales)
-- `category`   <- `first_category_id`
-- `stockout_flag` <- `stock_hour6_22_cnt > 0` (documented count of out-of-stock
-  hours 06:00-22:00); missing value stays unknown (`None`); the value must be
-  an integer in 0..17. Zero sales NEVER imply a stockout.
-
-Invalid rows are never silently dropped: every rejected row is counted with a
-deterministic reason. Internal missing days within a SKU's observed span are
-filled with `demand_units = 0.0` and `stockout_flag = None` (documented policy:
-a missing record is not evidence of a stockout).
-
-Population rule (documented BEFORE any metric; no random sampling):
-"Deterministic bounded evaluation over pinned snapshot": keys observed in
-train whose combined train+eval records cover at least `required_history_days`
-consecutive days AND share the identical date span with the modal span among
-qualifying keys; select the first `max_keys` in ascending (store_id,
-product_id) order. The shared-span requirement guarantees every selected key
-spans the same calendar, which the evaluation protocol requires.
-"""
-
 from __future__ import annotations
 
 import json
@@ -54,9 +25,6 @@ from .real_manifest import (
 if TYPE_CHECKING:
     from .population_manifest import PopulationManifest
 
-# Canonical schema expected in the pinned snapshot's parquet files. Recorded
-# from the verified bytes (fields/types match the pinned README; the parquet
-# bytes use list<element: int64> for hours_stock_status, see source-contract).
 EXPECTED_REAL_SCHEMA: dict[str, str] = {
     "city_id": "int64",
     "store_id": "int64",
@@ -79,8 +47,6 @@ EXPECTED_REAL_SCHEMA: dict[str, str] = {
     "avg_wind_level": "double",
 }
 
-# Columns the real loader actually consumes. Everything else is preserved in
-# the raw bytes under data/raw for audit but is not read into memory.
 USED_COLUMNS = (
     "store_id",
     "product_id",
@@ -91,20 +57,12 @@ USED_COLUMNS = (
 )
 SELECTION_COLUMNS = ("store_id", "product_id", "dt")
 
-# Population bounds: the expanding-window protocol needs
-# MIN_TRAIN_PERIODS + HORIZON + FINAL_TEST_PERIODS = 42 + 7 + 14 consecutive
-# days per SKU, and the evaluation is deliberately bounded.
 REQUIRED_HISTORY_DAYS = 63
 MAX_POPULATION_KEYS = 10
 
-# Expanded population (v2, opt-in via a population manifest). The v1 default
-# remains MAX_POPULATION_KEYS=10 with NO per-store cap; v2 must be requested
-# explicitly with a population manifest. The structural store-diversity cap and
-# target size are frozen before any metric is materialized.
 TARGET_POPULATION_KEYS = 100
 PER_STORE_CAP_KEYS = 10
 
-# Documented stockout derivation rule (docs/source-contract.md).
 STOCKOUT_DERIVATION_RULE = (
     "stock_hour6_22_cnt > 0 (documented number of out-of-stock hours in "
     "06:00-22:00) => stockout_flag True; 0 => False; missing => unknown (None); "
@@ -123,13 +81,11 @@ CANONICALIZATION_RULE = (
 
 
 class RealLoaderError(ValueError):
-    """Raised when a real snapshot cannot be loaded or verified."""
+    pass
 
 
 @dataclass(frozen=True)
 class RowRejection:
-    """A deterministic reason a source row was not accepted."""
-
     reason: str
     detail: str
 
@@ -138,14 +94,12 @@ class RowRejection:
 
 
 def _scalar_type_str(arrow_type: pa.DataType) -> str:
-    """Canonical, pyarrow-version-stable type string (normalizes list naming)."""
     if pa.types.is_list(arrow_type):
         return f"list<element: {_scalar_type_str(arrow_type.value_type)}>"
     return str(arrow_type)
 
 
 def inspect_parquet_schema(path: Path) -> dict[str, str]:
-    """Return {column: canonical type string} from the parquet file's schema."""
     schema = pq.read_schema(path)
     return {field.name: _scalar_type_str(field.type) for field in schema}
 
@@ -153,7 +107,6 @@ def inspect_parquet_schema(path: Path) -> dict[str, str]:
 def verify_parquet_schema(
     path: Path, expected: Mapping[str, str], *, where: str
 ) -> dict[str, str]:
-    """Validate the parquet schema against the expected columns/types."""
     actual = inspect_parquet_schema(path)
     missing = sorted(set(expected) - set(actual))
     if missing:
@@ -177,7 +130,6 @@ def verify_parquet_schema(
 def map_real_row(
     row: Mapping[str, object], *, where: str = "<row>"
 ) -> DemandRecord | RowRejection:
-    """Map one raw source row to a canonical `DemandRecord` or a rejection."""
     store = row.get("store_id")
     product = row.get("product_id")
     if store is None or product is None or str(store).strip() == "":
@@ -243,7 +195,6 @@ def map_real_row(
 
 
 def canonical_serialize(table: DemandTable) -> bytes:
-    """Deterministic byte serialization of the canonical table (sorted records)."""
     rows = [
         {
             "sku": record.sku,
@@ -262,14 +213,11 @@ def canonical_serialize(table: DemandTable) -> bytes:
 
 
 def canonical_content_sha256(table: DemandTable) -> str:
-    """SHA-256 over the canonical serialization (distinct from raw file bytes)."""
     return sha256_bytes(canonical_serialize(table))
 
 
 @dataclass(frozen=True)
 class PopulationSelection:
-    """Deterministic bounded population over the pinned snapshot."""
-
     rule: str
     required_history_days: int
     max_keys: int
@@ -308,7 +256,6 @@ def _key_sort_key(key: str) -> tuple[int, int]:
 
 
 def _group_spans(path: Path) -> dict[str, tuple[str | None, str | None, int]]:
-    """Per-key (min_dt, max_dt, count) from one parquet file."""
     table = pq.read_table(path, columns=list(SELECTION_COLUMNS))
     grouped = table.group_by(["store_id", "product_id"]).aggregate(
         [("dt", "min"), ("dt", "max"), ("dt", "count")]
@@ -342,12 +289,6 @@ def select_population(
     required_history_days: int,
     max_keys: int,
 ) -> PopulationSelection:
-    """Select the deterministic bounded population (documented rule above).
-
-    v1 rule: keys observed in train with combined train+eval span >=
-    `required_history_days` sharing the modal date span; first `max_keys` in
-    ascending (store_id, product_id) numeric order. No per-store cap.
-    """
     if max_keys <= 0:
         raise RealLoaderError("max_keys must be positive")
     analysis = analyze_population(
@@ -401,13 +342,6 @@ def select_population(
 
 @dataclass(frozen=True)
 class PopulationAnalysis:
-    """Shared eligibility metadata for the deterministic population rules.
-
-    Eligibility is metadata-only: it uses key presence and per-key date spans
-    from the two raw splits and NEVER reads demand or stockout values (no
-    outcomes can influence selection).
-    """
-
     all_keys: tuple[str, ...]
     train_spans: Mapping[str, tuple[str | None, str | None, int]]
     eval_spans: Mapping[str, tuple[str | None, str | None, int]]
@@ -424,7 +358,6 @@ def analyze_population(
     *,
     required_history_days: int,
 ) -> PopulationAnalysis:
-    """Compute the eligibility metadata shared by the v1 and v2 rules."""
     if required_history_days <= 0:
         raise RealLoaderError("required_history_days must be positive")
     train_spans = _group_spans(train_path)
@@ -440,17 +373,14 @@ def analyze_population(
     candidates: list[tuple[str, date, date, int]] = []
     for key in all_keys:
         if key not in train_spans:
-            continue  # "observed in train" only
+            continue
         min_dt, max_dt, _count = combined[key]
         try:
             start = date.fromisoformat(str(min_dt))
             end = date.fromisoformat(str(max_dt))
         except (TypeError, ValueError):
-            continue  # span cannot be determined; not a candidate
+            continue
         span_days = (end - start).days + 1
-        # Gaps and duplicate dates are handled deterministically by the row
-        # loader (gap fill / duplicate rejection); the population rule here is
-        # purely the required chronological history over the shared span.
         candidates.append((key, start, end, span_days))
 
     qualifying = tuple(c for c in candidates if c[3] >= required_history_days)
@@ -481,12 +411,6 @@ def _population_rule(required_history_days: int, max_keys: int) -> str:
 
 @dataclass(frozen=True)
 class ExpandedPopulationSelection:
-    """v2 population: structural store-diversity cap + target size.
-
-    Deterministic and metadata-only (never uses outcomes). The rule is frozen
-    before any metric is materialized.
-    """
-
     population_id: str
     rule: str
     required_history_days: int
@@ -560,7 +484,6 @@ def select_expanded_population(
     target_keys: int,
     population_id: str,
 ) -> ExpandedPopulationSelection:
-    """Deterministic v2 selection: eligibility, store cap, then target size."""
     if per_store_cap <= 0:
         raise RealLoaderError("per_store_cap must be positive")
     if target_keys <= 0:
@@ -655,11 +578,6 @@ def verify_population_selection(
     eval_path: Path,
     required_history_days: int,
 ) -> ExpandedPopulationSelection:
-    """Re-derive the deterministic v2 selection and validate the population manifest.
-
-    Fails clearly (never falls back) if the pinned revision, raw checksums, or
-    the recorded selected keys diverge from what the source actually contains.
-    """
     if population.pinned_revision != manifest.pinned_revision:
         raise RealLoaderError(
             "population manifest revision divergence: population records "
@@ -717,7 +635,6 @@ def verify_population_selection(
 
 
 def _read_rows_for_keys(path: Path, keys: Sequence[str]) -> list[dict[str, object]]:
-    """Read only the used columns, filtering to the selected keys."""
     if not keys:
         return []
     wanted = set(keys)
@@ -739,8 +656,6 @@ def _read_rows_for_keys(path: Path, keys: Sequence[str]) -> list[dict[str, objec
 
 @dataclass(frozen=True)
 class RealSnapshotLoadResult:
-    """Canonical table plus deterministic loading summary for the population."""
-
     table: DemandTable
     selection: PopulationSelection | ExpandedPopulationSelection
     canonical_sha256: str
@@ -757,7 +672,6 @@ class RealSnapshotLoadResult:
     def schema_report(
         self, manifest: RealSnapshotManifest, raw_dir: Path
     ) -> dict[str, Any]:
-        """Deterministic, compact schema report over the loaded population."""
         return {
             "report_version": "1.0",
             "source": {
@@ -820,14 +734,6 @@ def load_real_snapshot(
     max_keys: int = MAX_POPULATION_KEYS,
     population: PopulationManifest | None = None,
 ) -> RealSnapshotLoadResult:
-    """Load the deterministic bounded population from verified raw parquet files.
-
-    v1 behavior (default): `population` is None and the first `max_keys` keys of
-    the documented rule are selected. v2 (opt-in): pass a `PopulationManifest`;
-    the loader then re-derives the deterministic selection, validates the
-    manifest against the source (revision, raw checksums, keys, date spans), and
-    loads exactly the manifest's selected keys.
-    """
     manifest.require_raw_ok(raw_dir)
     if manifest.stockout_derivation_version != SUPPORTED_STOCKOUT_DERIVATION_VERSION:
         raise RealLoaderError(

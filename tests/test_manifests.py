@@ -1,5 +1,3 @@
-"""Dataset manifests: validation, checksums, round-trips."""
-
 from __future__ import annotations
 
 import json
