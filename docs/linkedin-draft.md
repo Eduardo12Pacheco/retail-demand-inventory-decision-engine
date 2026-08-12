@@ -1,8 +1,7 @@
 # Publicación de LinkedIn — Retail Demand · Inventory Decision Engine
 
 Idioma: español profesional neutro. Público objetivo: profesionales de retail,
-supply chain y analítica. Los URLs de GitHub y de la demo quedan como
-marcadores para completar antes de publicar.
+supply chain y analítica. Enlaces de código y demo local incluidos al final.
 
 ---
 
@@ -60,14 +59,14 @@ políticas deben simularse; las recomendaciones deben estresarse; y los hechos d
 fuente deben separarse de los supuestos de negocio. La confianza no viene del
 modelo, viene de la evidencia reproducible.
 
-Código: [GitHub URL]
-Demo: [Demo URL]
+Código: https://github.com/Eduardo12Pacheco/retail-demand-inventory-decision-engine
+Demo: https://github.com/Eduardo12Pacheco/retail-demand-inventory-decision-engine#readme
 
 ---
 
 **Notas de publicación**
 
-- Reemplazar `[GitHub URL]` y `[Demo URL]` antes de publicar.
+- Enlaces de código y demo local ya completados; apuntan al repositorio.
 - Números citados de `data/evaluations/freshretailnet-robustness-report-v1.0.0.json`
   (retention 1081/1100 = 98,27 %; changed 19/1100; infeasible 118/1100) y de los
   reportes v1/v2 comprometidos.
