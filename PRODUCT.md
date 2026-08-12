@@ -28,6 +28,9 @@ run.
 - Not a forecast service, no API, no production deployment.
 - Not integrated with any live retail system.
 - Not claiming any accuracy on real data (none has been audited yet).
+- Robustness numbers are sensitivity analyses over modeled business
+  assumptions (costs/lead times/service targets), never observed retailer
+  costs.
 
 ## Success metric (product)
 

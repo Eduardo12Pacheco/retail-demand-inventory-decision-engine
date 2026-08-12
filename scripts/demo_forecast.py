@@ -21,6 +21,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 SYNTHETIC_NOTICE = "Synthetic fixture — not a real business result"
 
+ROBUSTNESS_NOTICE = (
+    "Sensitivity analysis over modeled business assumptions — not observed "
+    "retailer costs"
+)
+ROBUSTNESS_GENERALIZATION = (
+    "Results are bounded to the deterministic v2 population and do not "
+    "generalize to all retailers."
+)
+ROBUSTNESS_REPORT_NAME = "freshretailnet-robustness-report-v1.0.0.json"
+
 
 def _load_report() -> dict:
     from retail_demand_inventory.evaluation.reports import load_json
@@ -161,6 +171,145 @@ def _expanded_status_text() -> str:
     return "\n".join(lines)
 
 
+def _robustness_report():
+    """Committed robustness report, or None when it does not exist."""
+    from retail_demand_inventory.evaluation.reports import load_json
+
+    report_path = ROOT / "data/evaluations" / ROBUSTNESS_REPORT_NAME
+    if not report_path.exists():
+        return None
+    return load_json(report_path)
+
+
+def _robustness_status_text() -> str:
+    """Robustness status from committed files only; never touches data/raw."""
+    report = _robustness_report()
+    if report is None:
+        return (
+            "**Robustness report is not available** (no committed "
+            "`freshretailnet-robustness-report-v1.0.0.json`)."
+        )
+    robustness = report["robustness"]
+    facts = report["source_facts"]
+    analysis = robustness["analysis"]
+    overall = analysis["aggregate"]["overall"]
+    population = facts.get("population", {})
+    store_key_counts = population.get("store_key_counts")
+    if isinstance(store_key_counts, dict):
+        store_count = len(store_key_counts)
+    else:
+        store_count = population.get("store_count")
+    product_count = population.get("product_key_count")
+    if product_count is None:
+        product_count = population.get("product_count")
+    lines = [
+        f"- **{ROBUSTNESS_NOTICE}**",
+        f"- **{ROBUSTNESS_GENERALIZATION}**",
+        (
+            f"- **Population**: `{facts.get('population_id')}` — "
+            f"{population.get('selected_key_count')} keys across "
+            f"{store_count} stores / {product_count} products"
+        ),
+        (
+            f"- **Scenarios**: {robustness['scenario_count']} frozen scenarios "
+            f"(manifest `{robustness['scenario_manifest']['manifest_version']}`, "
+            f"content sha256 `{robustness['scenario_manifest']['content_sha256'][:16]}`…)"
+        ),
+        (
+            f"- **Policy retention across non-baseline scenarios**: "
+            f"{overall.get('policy_retained_pct')}% retained, "
+            f"{overall.get('policy_changed_pct')}% changed; "
+            f"{overall.get('infeasible_pct')}% infeasible (documented fallback)."
+        ),
+        (
+            "- **Modeled costs, lead times, and service targets are NOT "
+            "observed retailer facts**; they are documented assumptions varied "
+            "for sensitivity analysis."
+        ),
+    ]
+    return "\n".join(lines)
+
+
+def _robustness_comparison_table(sku: str, scenario_id: str) -> dict:
+    """Baseline-v1 vs the chosen scenario for one SKU (deployment window)."""
+    report = _robustness_report()
+    robustness = report["robustness"]
+    scenarios = robustness["scenarios"]
+    if scenario_id == "baseline-v1":
+        return {}
+    baseline_keys = scenarios["baseline-v1"]["keys"]
+    if sku not in baseline_keys or sku not in scenarios[scenario_id]["keys"]:
+        return _robustness_scenario_summary_table(sku, scenario_id, robustness)
+    base = baseline_keys[sku]
+    scenario = scenarios[scenario_id]["keys"][sku]
+
+    def num(value) -> str:
+        return "undefined" if value is None else f"{value:.4f}"
+
+    base_rec = base["recommendation"]
+    scen_rec = scenario["recommendation"]
+    return {
+        "metric": [
+            "selected policy",
+            "order quantity",
+            "reorder point / order-up-to level",
+            "simulated service level",
+            "simulated fill rate",
+            "simulated total cost",
+            "simulated stockout units",
+            "simulated avg inventory",
+            "constraint satisfied (selection)",
+        ],
+        "baseline-v1": [
+            base_rec["policy_id"],
+            num(base_rec["order_quantity"]),
+            num(base_rec["trigger_level"]),
+            num(base_rec["simulated_service_level"]),
+            num(base_rec["simulated_fill_rate"]),
+            num(base_rec["simulated_total_cost"]),
+            num(base_rec["simulated_stockout_units"]),
+            num(base_rec["simulated_avg_inventory"]),
+            str(base["selection"]["constraint_satisfied"]),
+        ],
+        scenario_id: [
+            scen_rec["policy_id"],
+            num(scen_rec["order_quantity"]),
+            num(scen_rec["trigger_level"]),
+            num(scen_rec["simulated_service_level"]),
+            num(scen_rec["simulated_fill_rate"]),
+            num(scen_rec["simulated_total_cost"]),
+            num(scen_rec["simulated_stockout_units"]),
+            num(scen_rec["simulated_avg_inventory"]),
+            str(scenario["selection"]["constraint_satisfied"]),
+        ],
+    }
+
+
+def _robustness_scenario_summary_table(
+    sku: str, scenario_id: str, robustness: dict
+) -> dict:
+    """Bounded scenario-level stability when `sku` has no real-report key."""
+    summary = robustness["analysis"]["aggregate"]["per_scenario"][scenario_id]
+    return {
+        "metric": [
+            f"SKU `{sku}` in the bounded real v2 report",
+            "keys evaluated (bounded v2 real population)",
+            "policy retained across real keys (scenario-level)",
+            "policy changed across real keys (scenario-level)",
+            "infeasible (documented fallback)",
+            "constraint satisfied across real keys (scenario-level)",
+        ],
+        "value": [
+            "no — fixture SKU has no real counterpart; per-key comparison unavailable",
+            str(summary["key_count"]),
+            f"{summary['policy_retained_pct']}%",
+            f"{summary['policy_changed_pct']}%",
+            f"{summary['infeasible_pct']}%",
+            f"{summary['constraint_satisfied_pct']}%",
+        ],
+    }
+
+
 def _load_fixture_table():
     from retail_demand_inventory.data import load_canonical_csv
 
@@ -218,6 +367,55 @@ def main() -> None:
         format_func=lambda s: f"{s} — category {table.category_for(s)}",
     )
     section = report["per_sku"][selected_sku]
+
+    robustness = _robustness_report()
+    if robustness is not None:
+        with st.expander(
+            "Robustness (sensitivity over modeled business assumptions)",
+            expanded=False,
+        ):
+            st.markdown(_robustness_status_text())
+            scenario_ids = robustness["robustness"]["scenario_ids"]
+            selected_scenario = st.selectbox(
+                "Scenario",
+                options=scenario_ids,
+                index=1,
+                format_func=lambda s: (
+                    f"{s} — {robustness['robustness']['scenarios'][s]['definition']['label']}"
+                ),
+            )
+            if selected_scenario != "baseline-v1":
+                comparison = _robustness_comparison_table(
+                    selected_sku, selected_scenario
+                )
+                if comparison:
+                    if "value" in comparison:
+                        st.markdown(
+                            f"**`{selected_sku}` is a fixture SKU with no "
+                            "counterpart in the real v2 report** — showing "
+                            f"scenario-level stability across the bounded real "
+                            f"report for `{selected_scenario}` vs `baseline-v1`:"
+                        )
+                    else:
+                        st.markdown(
+                            f"**Baseline-v1 vs `{selected_scenario}` for SKU "
+                            f"`{selected_sku}`** (deployment-window outcome):"
+                        )
+                    st.table(comparison)
+                summary = robustness["robustness"]["analysis"]["aggregate"][
+                    "per_scenario"
+                ][selected_scenario]
+                st.markdown(
+                    f"**Across all {summary['key_count']} keys**: "
+                    f"policy retained {summary['policy_retained_pct']}%, changed "
+                    f"{summary['policy_changed_pct']}%, infeasible "
+                    f"{summary['infeasible_pct']}% (documented fallback)."
+                )
+                st.caption(
+                    "Per-key deltas and the transition matrix are in the "
+                    "committed robustness report."
+                )
+            st.caption(f"{ROBUSTNESS_NOTICE} · {ROBUSTNESS_GENERALIZATION}")
 
     history_dates = [d.isoformat() for d, _ in table.daily_series(selected_sku)]
     history_values = [v for _, v in table.daily_series(selected_sku)]

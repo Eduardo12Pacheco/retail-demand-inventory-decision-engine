@@ -1,0 +1,308 @@
+{
+  "code_revision": "9ae016f8e0ff827dcb319818f9422f04eaca2b21",
+  "code_revision_note": "git HEAD at generation time (manifest generated before commit; not the eventual commit SHA)",
+  "content_sha256": "632f80cc60f4a09443e4ad5fe9e08c78ab43682c12f3fb9f38aa75ef715f8eb4",
+  "creation_timestamp": "2026-08-11T00:00:00+00:00",
+  "forecast_versions": {
+    "hist_gradient_boosting": "1.0",
+    "moving_average": "1.0",
+    "naive": "1.0",
+    "ses": "1.0"
+  },
+  "horizon": 7,
+  "invariant_parameters": [
+    "source facts (pinned revision, raw bytes, raw SHA-256, canonical content)",
+    "v2 population selection (freshretailnet-real-population-v2)",
+    "forecast models and model versions (naive, moving_average, ses, hist_gradient_boosting)",
+    "candidate policy families and policy versions",
+    "horizon (7 days)",
+    "temporal folds (expanding origins; final test untouched)",
+    "seed 20260811",
+    "observed selection-window semantics (last validation fold demand, observed sales; censored demand during stockouts is documented, not recovered)"
+  ],
+  "manifest_name": "robustness-scenarios",
+  "manifest_version": "v1.0.0",
+  "policy_versions": {
+    "order_up_to_safety_stock": "1.0",
+    "reorder_point_order_quantity": "1.0"
+  },
+  "population_manifest_id": "freshretailnet-real-population-v2",
+  "population_manifest_path": "data/manifests/freshretailnet-real-population-v2.json",
+  "protocol_version": "1.0",
+  "scenario_ids": [
+    "baseline-v1",
+    "holding-high",
+    "stockout-high",
+    "ordering-high",
+    "costs-low",
+    "lead-short",
+    "lead-long",
+    "review-weekly",
+    "lead-review-long",
+    "service-085",
+    "service-095",
+    "demand-stress-high"
+  ],
+  "scenarios": {
+    "baseline-v1": {
+      "changed_parameters": [],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Reproduces the current v2 decisions exactly: service target 0.90, lead 3, review 1, cost multipliers 1.0, demand scale 1.0.",
+      "label": "Exact current reference",
+      "lead_time_days": 3,
+      "rationale": "The baseline must reproduce the current v2 decisions byte-for-byte and serves as the comparison reference for every other scenario.",
+      "review_period_days": 1,
+      "scenario_id": "baseline-v1",
+      "service_level_target": 0.9
+    },
+    "costs-low": {
+      "changed_parameters": [
+        "cost_multipliers.holding",
+        "cost_multipliers.stockout",
+        "cost_multipliers.ordering"
+      ],
+      "cost_multipliers": {
+        "holding": 0.5,
+        "ordering": 0.5,
+        "stockout": 0.5
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Holding, stockout, and ordering multipliers all 0.5; everything else identical to baseline.",
+      "label": "All costs halved",
+      "lead_time_days": 3,
+      "rationale": "A uniform cost deflation keeps relative cost ordering but changes absolute magnitudes; checks that selection is not scale-driven.",
+      "review_period_days": 1,
+      "scenario_id": "costs-low",
+      "service_level_target": 0.9
+    },
+    "demand-stress-high": {
+      "changed_parameters": [
+        "demand_stress.scale"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.3,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Controlled demand scale 1.30 applied to the deployment/simulation stress window ONLY; source demand, forecast training, and the primary v2 evaluation are untouched.",
+      "label": "Demand stress 1.30 (scenario simulation only)",
+      "lead_time_days": 3,
+      "rationale": "An explicitly modeled forecast-stress assumption: a 30% higher deployment-window demand tests order sizing under demand surprise without touching source facts or training.",
+      "review_period_days": 1,
+      "scenario_id": "demand-stress-high",
+      "service_level_target": 0.9
+    },
+    "holding-high": {
+      "changed_parameters": [
+        "cost_multipliers.holding"
+      ],
+      "cost_multipliers": {
+        "holding": 2.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Holding multiplier 2.0; everything else identical to baseline.",
+      "label": "Holding cost doubled",
+      "lead_time_days": 3,
+      "rationale": "One-factor-at-a-time: a higher holding cost should push selection toward lower inventory coverage.",
+      "review_period_days": 1,
+      "scenario_id": "holding-high",
+      "service_level_target": 0.9
+    },
+    "lead-long": {
+      "changed_parameters": [
+        "lead_time_days"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Lead time lengthened from 3 to 5 days.",
+      "label": "Lead time 5 days",
+      "lead_time_days": 5,
+      "rationale": "One-factor-at-a-time on the supply assumption: a longer lead time increases the coverage base and required inventory.",
+      "review_period_days": 1,
+      "scenario_id": "lead-long",
+      "service_level_target": 0.9
+    },
+    "lead-review-long": {
+      "changed_parameters": [
+        "lead_time_days",
+        "review_period_days"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Joint stress: lead time 5 days and review period 7 days.",
+      "label": "Lead 5 and review 7",
+      "lead_time_days": 5,
+      "rationale": "Joint stress case: longer lead plus a weekly review compounds the coverage increase and order-timing change.",
+      "review_period_days": 7,
+      "scenario_id": "lead-review-long",
+      "service_level_target": 0.9
+    },
+    "lead-short": {
+      "changed_parameters": [
+        "lead_time_days"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Lead time shortened from 3 to 2 days.",
+      "label": "Lead time 2 days",
+      "lead_time_days": 2,
+      "rationale": "One-factor-at-a-time on the supply assumption: a shorter lead time reduces the coverage base and the initial inventory.",
+      "review_period_days": 1,
+      "scenario_id": "lead-short",
+      "service_level_target": 0.9
+    },
+    "ordering-high": {
+      "changed_parameters": [
+        "cost_multipliers.ordering"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 2.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Ordering multiplier 2.0; everything else identical to baseline.",
+      "label": "Ordering cost doubled",
+      "lead_time_days": 3,
+      "rationale": "One-factor-at-a-time: a higher fixed order cost should push selection toward larger, less frequent orders.",
+      "review_period_days": 1,
+      "scenario_id": "ordering-high",
+      "service_level_target": 0.9
+    },
+    "review-weekly": {
+      "changed_parameters": [
+        "review_period_days"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Review period lengthened from 1 to 7 days.",
+      "label": "Review period 7 days",
+      "lead_time_days": 3,
+      "rationale": "One-factor-at-a-time on the review cadence: a weekly review changes order timing and coverage.",
+      "review_period_days": 7,
+      "scenario_id": "review-weekly",
+      "service_level_target": 0.9
+    },
+    "service-085": {
+      "changed_parameters": [
+        "service_level_target"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Service level target lowered from 0.90 to 0.85.",
+      "label": "Service target 0.85",
+      "lead_time_days": 3,
+      "rationale": "One-factor-at-a-time on the decision target: a lower target relaxes the constraint and may lower cost.",
+      "review_period_days": 1,
+      "scenario_id": "service-085",
+      "service_level_target": 0.85
+    },
+    "service-095": {
+      "changed_parameters": [
+        "service_level_target"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 1.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Service level target raised from 0.90 to 0.95.",
+      "label": "Service target 0.95",
+      "lead_time_days": 3,
+      "rationale": "One-factor-at-a-time on the decision target: a higher target tightens the constraint and may raise cost or force fallback.",
+      "review_period_days": 1,
+      "scenario_id": "service-095",
+      "service_level_target": 0.95
+    },
+    "stockout-high": {
+      "changed_parameters": [
+        "cost_multipliers.stockout"
+      ],
+      "cost_multipliers": {
+        "holding": 1.0,
+        "ordering": 1.0,
+        "stockout": 2.0
+      },
+      "demand_stress": {
+        "scale": 1.0,
+        "scope": "scenario-simulation-only"
+      },
+      "description": "Stockout multiplier 2.0; everything else identical to baseline.",
+      "label": "Stockout cost doubled",
+      "lead_time_days": 3,
+      "rationale": "One-factor-at-a-time: a higher stockout cost should push selection toward higher service coverage.",
+      "review_period_days": 1,
+      "scenario_id": "stockout-high",
+      "service_level_target": 0.9
+    }
+  },
+  "seed": 20260811,
+  "selection_objective": "minimize total cost subject to simulated service level >= scenario target",
+  "selection_window_demand_scale": "selection-window demand is never scaled: policy candidate selection always uses the observed last-validation-fold demand; a scenario demand scale applies ONLY to deployment/simulation stress and is documented per scenario",
+  "source_manifest_id": "freshretailnet-real.json",
+  "source_manifest_revision": "08c1fab7f9257bc73679d415d65d644165d351d4",
+  "tie_break": "feasible: lower total cost, then lower stockout units, then lower avg inventory, then lexicographically smaller run_id; infeasible fallback: highest simulated service level, then lower total cost, then lexicographically smaller run_id (transparent, never labeled optimal)",
+  "timestamp_source": "documented-fixed-value"
+}

@@ -20,6 +20,10 @@ replenishment decisions, built with reproducible evidence at its center.
   to every recommendation.
 - A protocol-driven evaluation that produces a reproducible JSON report and an
   offline Streamlit demo.
+- A decision-robustness layer that re-runs the decision pipeline over the
+  frozen 12-scenario matrix on the existing v2 population, reporting policy
+  retention, order/reorder-point deltas, feasibility, and neutral trade-off
+  summaries.
 
 ## What this is NOT (read this first)
 
@@ -34,6 +38,15 @@ replenishment decisions, built with reproducible evidence at its center.
   keys across 10 stores). Both are labeled as deterministic bounded evaluations
   over the pinned snapshot under a documented rule and **do not generalize**.
   They are never called full-dataset or production results.
+- **The robustness report varies modeled assumptions, not facts.**
+  `data/evaluations/freshretailnet-robustness-report-v1.0.0.json` re-runs the
+  decision layer over the v2 population under the frozen scenario matrix
+  (`docs/robustness-protocol.md`). It is labeled
+  *"Sensitivity analysis over modeled business assumptions — not observed
+  retailer costs"* and *"Results are bounded to the deterministic v2 population
+  and do not generalize to all retailers."* Modeled costs/lead times/service
+  targets are NOT observed retailer facts; source facts and modeled assumptions
+  are separated in the report.
 - **No claim of optimality** anywhere: models and policies are selected under
   documented rules, never labeled optimal.
 
@@ -73,8 +86,9 @@ src/retail_demand_inventory/
 │                     # acquisition + schema-report CLIs, chronological splits
 ├── forecasting/      # base interface, baselines, features, models, predictions
 ├── simulation/       # policies, engine, events, outcomes (daily lost-sales)
-├── decisions/        # recommendation, ranking, evidence
-└── evaluation/       # metrics, backtesting, reports, materializer CLI
+├── decisions/        # recommendation, ranking, evidence, scenarios manifest
+└── evaluation/       # metrics, backtesting, reports, materializer CLIs,
+                      # robustness aggregation + robustness materializer
 ```
 
 ## Commands
@@ -110,14 +124,24 @@ uv run python -m retail_demand_inventory.evaluation.materialize \
     --population data/manifests/freshretailnet-real-population-v2.json
 # -> data/evaluations/freshretailnet-real-expanded-report.json
 
+# Robustness (decision sensitivity over the frozen scenario matrix, v2 population)
+uv run python -m retail_demand_inventory.decisions.scenarios \
+    --out data/manifests/robustness-scenarios-v1.0.0.json
+uv run python -m retail_demand_inventory.evaluation.robustness_materialize \
+    --source real --scenarios data/manifests/robustness-scenarios-v1.0.0.json
+# -> data/evaluations/freshretailnet-robustness-report-v1.0.0.json
+
 uv sync --dev --extra demo
 uv run --extra demo streamlit run scripts/demo_forecast.py
 ```
 
 The evaluation protocol (`docs/evaluation-protocol.md`) fixes splits, seed,
 horizon, metrics, the real population rule, and selection rules BEFORE any
-number is produced. The demo script (`docs/demo-script.md`) documents what the
-demo shows and must not claim.
+number is produced. The robustness protocol (`docs/robustness-protocol.md`)
+fixes the 12-scenario matrix before robustness metrics are produced; modeled
+costs/lead times/service targets are assumptions, not observed retailer facts.
+The demo script (`docs/demo-script.md`) documents what the demo shows and must
+not claim.
 
 ## Data and license limits
 

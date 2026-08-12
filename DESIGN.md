@@ -19,7 +19,7 @@ src/retail_demand_inventory/
 ├── forecasting/   # forecast models behind one interface
 ├── simulation/    # discrete-event inventory policy simulation
 ├── decisions/     # replenishment rules over simulation output
-└── evaluation/    # protocol-driven metrics
+└── evaluation/    # protocol-driven metrics, robustness aggregation/materialization
 ```
 
 Each layer is replaceable and only depends on documented interfaces.
@@ -32,6 +32,7 @@ Each layer is replaceable and only depends on documented interfaces.
 | Forecast interface | `fit(train_data) / predict(future_context, horizon)` over single-SKU `DemandTable`; naive, moving average, SES, histogram gradient boosting |
 | Simulation | Deterministic daily lost-sales engine, fixed seed, policy-in → outcomes-out, auditable run IDs |
 | Evidence | Every recommendation cites the simulation run IDs, versions, and report paths that support it |
+| Decision robustness | Frozen 12-scenario manifest (`decisions/scenarios.py`), executor `evaluation/robustness_materialize.py`, aggregation `evaluation/robustness.py`; reruns vary only declared assumptions; source facts vs modeled assumptions separated |
 | Demo | Local Streamlit app reading committed fixtures and the generated report only |
 
 ## No-goals
