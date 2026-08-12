@@ -100,6 +100,64 @@ def _real_status_text() -> str:
     limitations = report.get("limitations", [])
     for limitation in limitations[:3]:
         lines.append(f"- **Limitation**: {limitation}")
+    expanded = _expanded_status_text()
+    if expanded:
+        lines.append("")
+        lines.append("**Expanded (v2) population status**")
+        lines.append(expanded)
+    return "\n".join(lines)
+
+
+def _expanded_status_text() -> str:
+    """Expanded (v2) status from committed files only; never touches data/raw."""
+    report_path = ROOT / "data/evaluations" / "freshretailnet-real-expanded-report.json"
+    if not report_path.exists():
+        return ""
+    from retail_demand_inventory.evaluation.reports import load_json
+
+    report = load_json(report_path)
+    expanded = report.get("expanded", {})
+    dataset = report["dataset"]
+    agg = expanded.get("aggregates", {})
+    stockout = expanded.get("stockout_semantics", {})
+    lines = [
+        (
+            f"- **Label**: `{expanded.get('evaluation_label', dataset.get('evaluation_label'))}` — "
+            "a bounded expanded evaluation, NOT a full-dataset result; does not generalize."
+        ),
+        (
+            f"- **Population**: `{expanded.get('population_id')}` — "
+            f"{expanded['population']['selected_key_count']} of "
+            f"{expanded['population']['candidate_key_count']} keys across "
+            f"{expanded['dimensions']['store_count']} stores / "
+            f"{expanded['dimensions']['product_count']} products, "
+            f"{expanded['dimensions']['train_row_count']} + "
+            f"{expanded['dimensions']['eval_row_count']} train/eval rows"
+        ),
+        (f"- **Stockout semantics**: {stockout.get('rule')}"),
+    ]
+    final = agg.get("final_test_forecast", {})
+    per_key = final.get("per_key", {})
+    if per_key:
+        mae = per_key.get("mae", {})
+        lines.append(
+            "- **Final-test MAE across keys** "
+            f"(median {_fmt(mae.get('median'))}, p25 {_fmt(mae.get('p25'))}, "
+            f"p75 {_fmt(mae.get('p75'))}, p95 {_fmt(mae.get('p95'))}) — "
+            "describes the selected 100-key population only."
+        )
+    policy = agg.get("policy", {})
+    constraint = policy.get("constraint_satisfaction", {})
+    fallback = policy.get("fallback", {})
+    if constraint:
+        lines.append(
+            f"- **Service constraint**: {constraint.get('keys_meeting_target')} keys "
+            f"meeting the target, {constraint.get('keys_below_target')} below; "
+            f"{fallback.get('infeasible_keys')} infeasible (documented fallback)."
+        )
+    limitations = report.get("limitations", [])
+    for limitation in limitations[:2]:
+        lines.append(f"- **Limitation**: {limitation}")
     return "\n".join(lines)
 
 

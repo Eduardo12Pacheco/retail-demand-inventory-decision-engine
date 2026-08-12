@@ -82,6 +82,30 @@ def write_split(directory: Path, name: str, rows) -> Path:
     return path
 
 
+def write_expanded_raw(
+    directory: Path,
+    *,
+    stores: int,
+    products: int,
+    train_days: int = 90,
+    eval_days: int = 7,
+    start: str = "2024-01-01",
+    sale: float = 1.0,
+) -> list[tuple[int, int]]:
+    """Train (90 days) + eval (7 following days) for `stores*products` keys.
+
+    Mirrors the real snapshot layout: every key appears in train for the first
+    `train_days` and in eval for the next `eval_days`, so the combined span is
+    `train_days + eval_days` consecutive days with no overlap. Returns the keys.
+    """
+    keys = [(s, p) for s in range(stores) for p in range(products)]
+    d0 = date.fromisoformat(start)
+    write_split(directory, "train", daily_rows(keys, start, train_days, sale=sale))
+    eval_start = (d0 + timedelta(days=train_days)).isoformat()
+    write_split(directory, "eval", daily_rows(keys, eval_start, eval_days, sale=sale))
+    return keys
+
+
 def daily_rows(
     keys, start: str, n: int, *, sale=1.0, category=1, stock=0
 ) -> list[dict]:

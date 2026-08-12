@@ -1,0 +1,144 @@
+{
+  "budget": {
+    "budget_note": "The expanded population (100 keys, ~9,700 rows) is within the documented budget: measured materialization ~83s wall (budget 300s), measured report ~4.1MB, peak memory ~8MiB bound.",
+    "within_budget": true
+  },
+  "counts": {
+    "candidate_key_count": 50000,
+    "eligible_key_count": 50000,
+    "eval_row_count": 700,
+    "excluded_key_count": 49900,
+    "excluded_row_count": 4840300,
+    "product_count": 40,
+    "qualifying_key_count": 50000,
+    "selected_key_count": 100,
+    "selected_row_count": 9700,
+    "source_row_count": 4850000,
+    "store_count": 10,
+    "train_row_count": 9000
+  },
+  "coverage": {
+    "selected_of_source_keys": {
+      "fraction": 0.002,
+      "selected": 100,
+      "total": 50000
+    },
+    "selected_of_source_rows": {
+      "fraction": 0.002,
+      "selected": 9700,
+      "total": 4850000
+    }
+  },
+  "date_range": [
+    "2024-03-28",
+    "2024-07-02"
+  ],
+  "exclusion_reasons": {
+    "beyond_store_cap": 41053,
+    "beyond_target": 8847
+  },
+  "generation": {
+    "code_revision": "6e5771f5a6db6ad4b2a9a32bb2942cabcdb33a73",
+    "code_revision_note": "git HEAD at generation time (manifest generated before commit; not the eventual commit SHA)",
+    "creation_timestamp": "2026-08-11T00:00:00+00:00",
+    "timestamp_source": "documented-fixed-value"
+  },
+  "history_rule": {
+    "date_span": "identical date span (modal span among qualifying keys)",
+    "required_history_days": 63,
+    "requirement": "MIN_TRAIN_PERIODS + HORIZON + FINAL_TEST_PERIODS = 42 + 7 + 14 consecutive days"
+  },
+  "mode": "dry-run",
+  "non_final_metrics": {
+    "note": "Dry-run profile only: verifies checksums, scans selection metadata, and reports structural counts. No forecast/policy metrics are computed or reported.",
+    "uses_outcomes": false
+  },
+  "per_store_keys": {
+    "0": 10,
+    "1": 10,
+    "2": 10,
+    "3": 10,
+    "4": 10,
+    "5": 10,
+    "6": 10,
+    "7": 10,
+    "8": 10,
+    "9": 10
+  },
+  "population_id": "freshretailnet-real-population-v2",
+  "population_manifest": {
+    "canonical_content_sha256": "24fa57427ec1600a74705a42a971130bd36d851f7fb7d71bf13ca585bbac440f",
+    "path": "data/manifests/freshretailnet-real-population-v2.json",
+    "population_id": "freshretailnet-real-population-v2",
+    "present": true,
+    "selection_checksums": {
+      "excluded_keys_sha256": "b628199482f9c48c46df1c9a7966051cc328c011ad6f02f8860adfa574ef8a1c",
+      "selected_keys_sha256": "ccf64a1cb7f2ec86ff06d1acced2dd88d6c52ba110b528669c5b1f1e8d5531a7"
+    },
+    "validated": true
+  },
+  "profile_id": "freshretailnet-real-population-profile-v2",
+  "report_version": "1.0",
+  "resource_profile": {
+    "estimated_peak_memory_bytes": 8388608,
+    "estimated_report_bytes": 4200000,
+    "materialization_estimated_runtime_seconds": 300,
+    "note": "Documented deterministic constants, not wall-clock measurements. Basis: measured v1 runtime ~87s for 10 keys and measured v2 runtime ~83s wall for 100 keys (shared-backtest optimization); documented materialization budget 300s; span grouping ~1s; 100 selected keys ~0.3s read; measured report ~4.1MB; memory is tiny (~9,700 canonical records).",
+    "profile_estimated_runtime_seconds": 3,
+    "source": "documented-constant"
+  },
+  "selection_checksums": {
+    "excluded_keys_sha256": "b628199482f9c48c46df1c9a7966051cc328c011ad6f02f8860adfa574ef8a1c",
+    "selected_keys_sha256": "ccf64a1cb7f2ec86ff06d1acced2dd88d6c52ba110b528669c5b1f1e8d5531a7"
+  },
+  "selection_rule": {
+    "per_store_cap": 10,
+    "rule": "Deterministic expanded population over pinned snapshot: keys observed in train whose combined train+eval records span at least 63 consecutive days AND share the identical date span (modal span among qualifying keys); sort eligible keys by ascending (store_id, product_id) numeric order; enforce a structural store-diversity cap of at most 10 keys per store; select the first 100 keys overall. No random sampling; no final metrics; no performance filters; rule frozen before any result is materialized.",
+    "target_keys": 100
+  },
+  "source": {
+    "dataset_id": "Dingdong-Inc/FreshRetailNet-50K",
+    "manifest_gates": {
+      "license_verified": true,
+      "schema_verified": true,
+      "snapshot_verified": true,
+      "source_verified": true,
+      "stockout_semantics_verified": true
+    },
+    "pinned_revision": "08c1fab7f9257bc73679d415d65d644165d351d4",
+    "raw_files": [
+      {
+        "expected_sha256": "6706832db892bbae4969c19d87e07975d2543d2ba7d7d4756360654785de5a3d",
+        "expected_size": 106436287,
+        "local_name": "freshretailnet-08c1fab7f9257bc73679d415d65d644165d351d4-train.parquet",
+        "name": "train",
+        "observed_sha256": "6706832db892bbae4969c19d87e07975d2543d2ba7d7d4756360654785de5a3d",
+        "observed_size": 106436287,
+        "verified": true
+      },
+      {
+        "expected_sha256": "1b118840664280c6b88bffc84c80ee1f54c05d911e354b7599e5da10995e960e",
+        "expected_size": 8440124,
+        "local_name": "freshretailnet-08c1fab7f9257bc73679d415d65d644165d351d4-eval.parquet",
+        "name": "eval",
+        "observed_sha256": "1b118840664280c6b88bffc84c80ee1f54c05d911e354b7599e5da10995e960e",
+        "observed_size": 8440124,
+        "verified": true
+      }
+    ],
+    "source_manifest_id": "freshretailnet-real.json",
+    "source_manifest_path": "data/manifests/freshretailnet-real.json"
+  },
+  "train_eval_separation": {
+    "date_overlap": false,
+    "eval_dates": [
+      "2024-06-26",
+      "2024-07-02"
+    ],
+    "note": "Each selected key appears in train (first 90 days) and eval (last 7 days) with disjoint dates; the evaluation re-splits chronologically per the protocol.",
+    "train_dates": [
+      "2024-03-28",
+      "2024-06-25"
+    ]
+  }
+}

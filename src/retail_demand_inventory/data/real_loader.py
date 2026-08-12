@@ -36,7 +36,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 import pyarrow.dataset as ds
@@ -50,6 +50,9 @@ from .real_manifest import (
     SUPPORTED_STOCKOUT_DERIVATION_VERSION,
     RealSnapshotManifest,
 )
+
+if TYPE_CHECKING:
+    from .population_manifest import PopulationManifest
 
 # Canonical schema expected in the pinned snapshot's parquet files. Recorded
 # from the verified bytes (fields/types match the pinned README; the parquet
@@ -93,6 +96,13 @@ SELECTION_COLUMNS = ("store_id", "product_id", "dt")
 # days per SKU, and the evaluation is deliberately bounded.
 REQUIRED_HISTORY_DAYS = 63
 MAX_POPULATION_KEYS = 10
+
+# Expanded population (v2, opt-in via a population manifest). The v1 default
+# remains MAX_POPULATION_KEYS=10 with NO per-store cap; v2 must be requested
+# explicitly with a population manifest. The structural store-diversity cap and
+# target size are frozen before any metric is materialized.
+TARGET_POPULATION_KEYS = 100
+PER_STORE_CAP_KEYS = 10
 
 # Documented stockout derivation rule (docs/source-contract.md).
 STOCKOUT_DERIVATION_RULE = (
@@ -332,15 +342,94 @@ def select_population(
     required_history_days: int,
     max_keys: int,
 ) -> PopulationSelection:
-    """Select the deterministic bounded population (documented rule above)."""
-    if required_history_days <= 0:
-        raise RealLoaderError("required_history_days must be positive")
+    """Select the deterministic bounded population (documented rule above).
+
+    v1 rule: keys observed in train with combined train+eval span >=
+    `required_history_days` sharing the modal date span; first `max_keys` in
+    ascending (store_id, product_id) numeric order. No per-store cap.
+    """
     if max_keys <= 0:
         raise RealLoaderError("max_keys must be positive")
+    analysis = analyze_population(
+        train_path, eval_path, required_history_days=required_history_days
+    )
+    if analysis.modal_span is None:
+        return PopulationSelection(
+            rule=_population_rule(required_history_days, max_keys),
+            required_history_days=required_history_days,
+            max_keys=max_keys,
+            source_row_count=analysis.source_row_count,
+            selected_row_count=0,
+            excluded_row_count=analysis.source_row_count,
+            selected_key_count=0,
+            excluded_key_count=len(analysis.all_keys),
+            candidate_key_count=len(analysis.candidates),
+            qualifying_key_count=0,
+            selected_keys=(),
+            date_range=None,
+        )
+    reference_span = analysis.modal_span
+    selected = [
+        c[0]
+        for c in sorted(analysis.qualifying, key=lambda c: _key_sort_key(c[0]))
+        if (c[1], c[2]) == reference_span
+    ][:max_keys]
 
+    selected_keys = tuple(selected)
+    selected_row_count = sum(analysis.combined[key][2] for key in selected_keys)
+    date_range = None
+    if selected_keys:
+        starts = [c[1] for c in analysis.qualifying if c[0] in set(selected_keys)]
+        ends = [c[2] for c in analysis.qualifying if c[0] in set(selected_keys)]
+        date_range = (min(starts), max(ends))
+
+    return PopulationSelection(
+        rule=_population_rule(required_history_days, max_keys),
+        required_history_days=required_history_days,
+        max_keys=max_keys,
+        source_row_count=analysis.source_row_count,
+        selected_row_count=selected_row_count,
+        excluded_row_count=analysis.source_row_count - selected_row_count,
+        selected_key_count=len(selected_keys),
+        excluded_key_count=len(analysis.all_keys) - len(selected_keys),
+        candidate_key_count=len(analysis.candidates),
+        qualifying_key_count=len(analysis.qualifying),
+        selected_keys=selected_keys,
+        date_range=date_range,
+    )
+
+
+@dataclass(frozen=True)
+class PopulationAnalysis:
+    """Shared eligibility metadata for the deterministic population rules.
+
+    Eligibility is metadata-only: it uses key presence and per-key date spans
+    from the two raw splits and NEVER reads demand or stockout values (no
+    outcomes can influence selection).
+    """
+
+    all_keys: tuple[str, ...]
+    train_spans: Mapping[str, tuple[str | None, str | None, int]]
+    eval_spans: Mapping[str, tuple[str | None, str | None, int]]
+    combined: Mapping[str, tuple[str | None, str | None, int]]
+    source_row_count: int
+    candidates: tuple[tuple[str, date, date, int], ...]
+    qualifying: tuple[tuple[str, date, date, int], ...]
+    modal_span: tuple[date, date] | None
+
+
+def analyze_population(
+    train_path: Path,
+    eval_path: Path,
+    *,
+    required_history_days: int,
+) -> PopulationAnalysis:
+    """Compute the eligibility metadata shared by the v1 and v2 rules."""
+    if required_history_days <= 0:
+        raise RealLoaderError("required_history_days must be positive")
     train_spans = _group_spans(train_path)
     eval_spans = _group_spans(eval_path)
-    all_keys = sorted(set(train_spans) | set(eval_spans))
+    all_keys = tuple(sorted(set(train_spans) | set(eval_spans)))
 
     combined: dict[str, tuple[str | None, str | None, int]] = {}
     for key in all_keys:
@@ -364,51 +453,18 @@ def select_population(
         # purely the required chronological history over the shared span.
         candidates.append((key, start, end, span_days))
 
-    qualifying = [c for c in candidates if c[3] >= required_history_days]
+    qualifying = tuple(c for c in candidates if c[3] >= required_history_days)
     modal_counts = Counter((c[1], c[2]) for c in qualifying)
-    if not modal_counts:
-        return PopulationSelection(
-            rule=_population_rule(required_history_days, max_keys),
-            required_history_days=required_history_days,
-            max_keys=max_keys,
-            source_row_count=source_row_count,
-            selected_row_count=0,
-            excluded_row_count=source_row_count,
-            selected_key_count=0,
-            excluded_key_count=len(all_keys),
-            candidate_key_count=len(candidates),
-            qualifying_key_count=0,
-            selected_keys=(),
-            date_range=None,
-        )
-    reference_span = modal_counts.most_common(1)[0][0]
-    selected = [
-        c[0]
-        for c in sorted(qualifying, key=lambda c: _key_sort_key(c[0]))
-        if (c[1], c[2]) == reference_span
-    ][:max_keys]
-
-    selected_keys = tuple(selected)
-    selected_row_count = sum(combined[key][2] for key in selected_keys)
-    date_range = None
-    if selected_keys:
-        starts = [c[1] for c in qualifying if c[0] in set(selected_keys)]
-        ends = [c[2] for c in qualifying if c[0] in set(selected_keys)]
-        date_range = (min(starts), max(ends))
-
-    return PopulationSelection(
-        rule=_population_rule(required_history_days, max_keys),
-        required_history_days=required_history_days,
-        max_keys=max_keys,
+    modal_span = modal_counts.most_common(1)[0][0] if modal_counts else None
+    return PopulationAnalysis(
+        all_keys=all_keys,
+        train_spans=train_spans,
+        eval_spans=eval_spans,
+        combined=combined,
         source_row_count=source_row_count,
-        selected_row_count=selected_row_count,
-        excluded_row_count=source_row_count - selected_row_count,
-        selected_key_count=len(selected_keys),
-        excluded_key_count=len(all_keys) - len(selected_keys),
-        candidate_key_count=len(candidates),
-        qualifying_key_count=len(qualifying),
-        selected_keys=selected_keys,
-        date_range=date_range,
+        candidates=tuple(candidates),
+        qualifying=qualifying,
+        modal_span=modal_span,
     )
 
 
@@ -421,6 +477,243 @@ def _population_rule(required_history_days: int, max_keys: int) -> str:
         f"first {max_keys} keys in ascending (store_id, product_id) numeric order. "
         "No random sampling; no protocol change after results are seen."
     )
+
+
+@dataclass(frozen=True)
+class ExpandedPopulationSelection:
+    """v2 population: structural store-diversity cap + target size.
+
+    Deterministic and metadata-only (never uses outcomes). The rule is frozen
+    before any metric is materialized.
+    """
+
+    population_id: str
+    rule: str
+    required_history_days: int
+    per_store_cap: int
+    target_keys: int
+    source_row_count: int
+    selected_row_count: int
+    excluded_row_count: int
+    selected_key_count: int
+    excluded_key_count: int
+    candidate_key_count: int
+    qualifying_key_count: int
+    eligible_key_count: int
+    selected_keys: tuple[str, ...]
+    store_key_counts: Mapping[str, int]
+    product_key_count: int
+    exclusion_reasons: Mapping[str, int]
+    train_row_count: int
+    eval_row_count: int
+    date_range: tuple[date, date] | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "population_id": self.population_id,
+            "rule": self.rule,
+            "required_history_days": self.required_history_days,
+            "per_store_cap": self.per_store_cap,
+            "target_keys": self.target_keys,
+            "source_row_count": self.source_row_count,
+            "selected_row_count": self.selected_row_count,
+            "excluded_row_count": self.excluded_row_count,
+            "selected_key_count": self.selected_key_count,
+            "excluded_key_count": self.excluded_key_count,
+            "candidate_key_count": self.candidate_key_count,
+            "qualifying_key_count": self.qualifying_key_count,
+            "eligible_key_count": self.eligible_key_count,
+            "selected_keys": list(self.selected_keys),
+            "store_key_counts": dict(self.store_key_counts),
+            "product_key_count": self.product_key_count,
+            "exclusion_reasons": dict(self.exclusion_reasons),
+            "train_row_count": self.train_row_count,
+            "eval_row_count": self.eval_row_count,
+            "date_range": (
+                [d.isoformat() for d in self.date_range] if self.date_range else None
+            ),
+        }
+
+
+def _expanded_population_rule(
+    required_history_days: int, per_store_cap: int, target_keys: int
+) -> str:
+    return (
+        "Deterministic expanded population over pinned snapshot: keys observed in "
+        "train whose combined train+eval records span at least "
+        f"{required_history_days} consecutive days AND share the identical date "
+        "span (modal span among qualifying keys); sort eligible keys by ascending "
+        "(store_id, product_id) numeric order; enforce a structural "
+        f"store-diversity cap of at most {per_store_cap} keys per store; select "
+        f"the first {target_keys} keys overall. No random sampling; no final "
+        "metrics; no performance filters; rule frozen before any result is "
+        "materialized."
+    )
+
+
+def select_expanded_population(
+    train_path: Path,
+    eval_path: Path,
+    *,
+    required_history_days: int,
+    per_store_cap: int,
+    target_keys: int,
+    population_id: str,
+) -> ExpandedPopulationSelection:
+    """Deterministic v2 selection: eligibility, store cap, then target size."""
+    if per_store_cap <= 0:
+        raise RealLoaderError("per_store_cap must be positive")
+    if target_keys <= 0:
+        raise RealLoaderError("target_keys must be positive")
+    analysis = analyze_population(
+        train_path, eval_path, required_history_days=required_history_days
+    )
+    reasons: Counter[str] = Counter()
+    eligible: list[tuple[str, date, date, int]] = []
+    if analysis.modal_span is None:
+        for key in analysis.all_keys:
+            if key not in analysis.train_spans:
+                reasons["not_observed_in_train"] += 1
+            else:
+                reasons["below_required_history"] += 1
+    else:
+        for key in analysis.all_keys:
+            if key not in analysis.train_spans:
+                reasons["not_observed_in_train"] += 1
+                continue
+            span_entry = next((c for c in analysis.candidates if c[0] == key), None)
+            if span_entry is None:
+                reasons["span_undetermined"] += 1
+                continue
+            if span_entry[3] < required_history_days:
+                reasons["below_required_history"] += 1
+                continue
+            if (span_entry[1], span_entry[2]) != analysis.modal_span:
+                reasons["not_modal_span"] += 1
+                continue
+            eligible.append(span_entry)
+
+    eligible.sort(key=lambda c: _key_sort_key(c[0]))
+    per_store: dict[str, list[tuple[str, date, date, int]]] = {}
+    for candidate in eligible:
+        per_store.setdefault(candidate[0].split("|", 1)[0], []).append(candidate)
+    capped: list[tuple[str, date, date, int]] = []
+    for store in sorted(per_store, key=int):
+        capped.extend(per_store[store][:per_store_cap])
+    selected = capped[:target_keys]
+
+    selected_keys = tuple(c[0] for c in selected)
+    for _candidate in capped[target_keys:]:
+        reasons["beyond_target"] += 1
+    for store, candidates in per_store.items():
+        overflow = len(candidates) - per_store_cap
+        if overflow > 0:
+            reasons["beyond_store_cap"] += overflow
+
+    train_row_count = sum(
+        (analysis.train_spans.get(key) or (None, None, 0))[2] for key in selected_keys
+    )
+    eval_row_count = sum(
+        (analysis.eval_spans.get(key) or (None, None, 0))[2] for key in selected_keys
+    )
+    selected_row_count = train_row_count + eval_row_count
+    store_key_counts = Counter(key.split("|", 1)[0] for key in selected_keys)
+    product_key_count = len({key.split("|", 1)[1] for key in selected_keys})
+    date_range = analysis.modal_span
+
+    return ExpandedPopulationSelection(
+        population_id=population_id,
+        rule=_expanded_population_rule(
+            required_history_days, per_store_cap, target_keys
+        ),
+        required_history_days=required_history_days,
+        per_store_cap=per_store_cap,
+        target_keys=target_keys,
+        source_row_count=analysis.source_row_count,
+        selected_row_count=selected_row_count,
+        excluded_row_count=analysis.source_row_count - selected_row_count,
+        selected_key_count=len(selected_keys),
+        excluded_key_count=len(analysis.all_keys) - len(selected_keys),
+        candidate_key_count=len(analysis.all_keys),
+        qualifying_key_count=len(analysis.qualifying),
+        eligible_key_count=len(eligible),
+        selected_keys=selected_keys,
+        store_key_counts=dict(store_key_counts),
+        product_key_count=product_key_count,
+        exclusion_reasons=dict(reasons),
+        train_row_count=train_row_count,
+        eval_row_count=eval_row_count,
+        date_range=date_range,
+    )
+
+
+def verify_population_selection(
+    *,
+    manifest: RealSnapshotManifest,
+    population: PopulationManifest,
+    train_path: Path,
+    eval_path: Path,
+    required_history_days: int,
+) -> ExpandedPopulationSelection:
+    """Re-derive the deterministic v2 selection and validate the population manifest.
+
+    Fails clearly (never falls back) if the pinned revision, raw checksums, or
+    the recorded selected keys diverge from what the source actually contains.
+    """
+    if population.pinned_revision != manifest.pinned_revision:
+        raise RealLoaderError(
+            "population manifest revision divergence: population records "
+            f"{population.pinned_revision!r}, source manifest "
+            f"{manifest.pinned_revision!r}"
+        )
+    for entry in manifest.raw_files:
+        recorded = population.raw_checksums.get(entry.name)
+        if recorded is None:
+            raise RealLoaderError(
+                f"population manifest missing raw checksum for {entry.name!r}"
+            )
+        if recorded.get("local_name") != entry.local_name:
+            raise RealLoaderError(
+                f"population manifest raw file {entry.name!r} diverged: "
+                f"local_name {recorded.get('local_name')!r} != {entry.local_name!r}"
+            )
+        if int(recorded.get("size", -1)) != entry.expected_size:
+            raise RealLoaderError(
+                f"population manifest raw file {entry.name!r} diverged: size "
+                f"{recorded.get('size')!r} != {entry.expected_size}"
+            )
+        if str(recorded.get("sha256", "")) != entry.expected_sha256:
+            raise RealLoaderError(
+                f"population manifest raw file {entry.name!r} diverged: sha256 "
+                f"{recorded.get('sha256')!r} != {entry.expected_sha256}"
+            )
+
+    derived = select_expanded_population(
+        train_path,
+        eval_path,
+        required_history_days=required_history_days,
+        per_store_cap=population.per_store_cap,
+        target_keys=population.target_keys,
+        population_id=population.population_id,
+    )
+    derived_set = set(derived.selected_keys)
+    manifest_set = set(population.selected_keys)
+    missing = [key for key in population.selected_keys if key not in derived_set]
+    extra = [key for key in derived.selected_keys if key not in manifest_set]
+    if missing or extra:
+        raise RealLoaderError(
+            "population manifest selected keys diverge from the deterministic "
+            f"rule: {len(missing)} manifest keys not eligible, "
+            f"{len(extra)} eligible keys missing from the manifest"
+        )
+    if derived.date_range is not None:
+        span = [d.isoformat() for d in derived.date_range]
+        if population.date_range is not None and list(population.date_range) != span:
+            raise RealLoaderError(
+                "population manifest date range diverges from the source spans: "
+                f"{population.date_range} != {span}"
+            )
+    return derived
 
 
 def _read_rows_for_keys(path: Path, keys: Sequence[str]) -> list[dict[str, object]]:
@@ -449,7 +742,7 @@ class RealSnapshotLoadResult:
     """Canonical table plus deterministic loading summary for the population."""
 
     table: DemandTable
-    selection: PopulationSelection
+    selection: PopulationSelection | ExpandedPopulationSelection
     canonical_sha256: str
     rejected_by_reason: Mapping[str, int]
     gap_fill_records: int
@@ -458,6 +751,8 @@ class RealSnapshotLoadResult:
     unknown_stockout_records: int
     demand_summary: Mapping[str, object]
     stockout_summary: Mapping[str, object]
+    train_row_count: int = 0
+    eval_row_count: int = 0
 
     def schema_report(
         self, manifest: RealSnapshotManifest, raw_dir: Path
@@ -522,9 +817,17 @@ def load_real_snapshot(
     raw_dir: Path,
     *,
     required_history_days: int,
-    max_keys: int,
+    max_keys: int = MAX_POPULATION_KEYS,
+    population: PopulationManifest | None = None,
 ) -> RealSnapshotLoadResult:
-    """Load the deterministic bounded population from verified raw parquet files."""
+    """Load the deterministic bounded population from verified raw parquet files.
+
+    v1 behavior (default): `population` is None and the first `max_keys` keys of
+    the documented rule are selected. v2 (opt-in): pass a `PopulationManifest`;
+    the loader then re-derives the deterministic selection, validates the
+    manifest against the source (revision, raw checksums, keys, date spans), and
+    loads exactly the manifest's selected keys.
+    """
     manifest.require_raw_ok(raw_dir)
     if manifest.stockout_derivation_version != SUPPORTED_STOCKOUT_DERIVATION_VERSION:
         raise RealLoaderError(
@@ -552,19 +855,29 @@ def load_real_snapshot(
         where="eval.parquet",
     )
 
-    selection = select_population(
-        train_path,
-        eval_path,
-        required_history_days=required_history_days,
-        max_keys=max_keys,
-    )
+    if population is not None:
+        selection: PopulationSelection | ExpandedPopulationSelection = (
+            verify_population_selection(
+                manifest=manifest,
+                population=population,
+                train_path=train_path,
+                eval_path=eval_path,
+                required_history_days=required_history_days,
+            )
+        )
+    else:
+        selection = select_population(
+            train_path,
+            eval_path,
+            required_history_days=required_history_days,
+            max_keys=max_keys,
+        )
     if not selection.selected_keys:
         raise RealLoaderError("population selection produced no selected keys")
 
-    raw_rows: list[dict[str, object]] = [
-        *_read_rows_for_keys(train_path, selection.selected_keys),
-        *_read_rows_for_keys(eval_path, selection.selected_keys),
-    ]
+    train_rows = _read_rows_for_keys(train_path, selection.selected_keys)
+    eval_rows = _read_rows_for_keys(eval_path, selection.selected_keys)
+    raw_rows: list[dict[str, object]] = [*train_rows, *eval_rows]
 
     accepted: list[DemandRecord] = []
     rejections: Counter[str] = Counter()
@@ -634,4 +947,6 @@ def load_real_snapshot(
         unknown_stockout_records=unknown_stockout,
         demand_summary=demand_summary,
         stockout_summary=stockout_summary,
+        train_row_count=len(train_rows),
+        eval_row_count=len(eval_rows),
     )

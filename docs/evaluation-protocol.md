@@ -97,8 +97,36 @@ computed and is never changed after seeing results. The report records source
 row count, selected row count, excluded row count, selected keys/count, date
 range, and the rule.
 
+### Expanded population (v2, opt-in)
+
+v2 widens the deterministic bounded population to **100 keys** while keeping
+the same eligibility rule, snapshot, and protocol. It is opt-in via a
+population manifest; the v1 default (10 keys, no per-store cap) is unchanged.
+
+| v1 (default) | v2 (opt-in via population manifest) |
+| --- | --- |
+| `MAX_POPULATION_KEYS = 10` | `TARGET_POPULATION_KEYS = 100` |
+| no per-store cap | `PER_STORE_CAP_KEYS = 10` keys per store |
+| no manifest | `data/manifests/freshretailnet-real-population-v2.json` |
+| report `freshretailnet-real-report.json` | report `freshretailnet-real-expanded-report.json` |
+
+Eligibility for v2 is identical to v1 (observed in train, combined span ≥ 63
+days, modal date span). The v2 rule then sorts eligible keys by ascending
+`(store_id, product_id)`, applies the structural store-diversity cap (at most
+10 keys per store), and takes the first 100 keys overall. No sampling, no
+final metrics, and no performance filters participate in selection; the rule is
+frozen before any metric is materialized. Selection uses **metadata only**
+(key presence and date spans) — demand and stockout values never influence it.
+
+Real mode with `--population` loads exactly the manifest's selected keys and
+fails clearly (never falls back) if the pinned revision, raw checksums,
+schema, keys, or date spans diverge from the source, or if the canonical
+checksum mismatches. Without `--population`, real mode keeps the v1 10-key
+behavior and the v1 report.
+
 The publisher's own `train`/`eval` split is NOT used for evaluation: this
-project re-splits chronologically over each selected key's combined span.
+project re-splits chronologically over each selected key's combined span, for
+both v1 and v2.
 
 ## Missing-day and stockout treatment
 
@@ -202,7 +230,15 @@ reported as such; undefined values never silently count as zero.
   `uv run python -m retail_demand_inventory.evaluation.materialize --source real
   --manifest data/manifests/freshretailnet-real.json` (real, after acquisition
   and schema report).
+- [x] The expanded (v2) real report is reproduced by
+  `uv run python -m retail_demand_inventory.evaluation.materialize --source real
+  --manifest data/manifests/freshretailnet-real.json
+  --population data/manifests/freshretailnet-real-population-v2.json`
+  (after generating the population manifest with `population_manifest` and the
+  dry-run profile with `population_profile`).
 - [x] Baseline comparison (naive forecast) is included in every report.
 - [x] Every recommendation cites the simulation run IDs that support it.
 - [x] Real mode is labeled `Deterministic bounded evaluation over pinned
-  snapshot`, never full-dataset, and never falls back to the fixture.
+  snapshot`, never full-dataset, and never falls back to the fixture. The v2
+  expanded mode is labeled `Deterministic expanded bounded evaluation over
+  pinned snapshot` and likewise never falls back or generalizes.

@@ -262,6 +262,17 @@ stockouts). Therefore:
   derivation version/rule, and five explicit gates
   (`source_verified`, `license_verified`, `snapshot_verified`,
   `schema_verified`, `stockout_semantics_verified`). All five gates are true.
+- The expanded population manifest
+  (`data/manifests/freshretailnet-real-population-v2.json`) is **generated
+  from the code over the verified raw bytes** (never hand-typed) and records
+  the population ID, source manifest id/path, pinned revision, per-raw-file
+  checksums, the frozen selection rule, candidate/qualifying/eligible/
+  selected/excluded counts, store/product counts, train/eval rows, date range,
+  train/eval separation, selected/excluded key-list checksums, the v2
+  canonical-content SHA-256, the documented resource budget, `seed: null`,
+  `train_metadata_only: true`, and the generation timestamp/code revision.
+  Real mode with `--population` loads exactly the manifest's selected keys and
+  fails clearly on any source divergence.
 - **Missing observed checksums FAIL real-mode verification** (no silent pass);
   the optional-checksum behavior exists only for the synthetic fixture.
 - Checksums are verified before any loader consumes the artifact; real-mode
@@ -276,13 +287,48 @@ development, tests, and the demo. It is styled after the audited source's grain
 **not derived from, sampled from, or representative of FreshRetailNet-50K**.
 No number produced from it is a real-world result.
 
+## Expanded real population (v2)
+
+The v1 bounded evaluation covers the first **10 store-product keys** (all store
+0) under the documented deterministic rule. A second, **opt-in** expanded
+population (`freshretailnet-real-population-v2`) widens the deterministic
+evaluation to **100 keys** while keeping the same pinned snapshot, the same
+eligibility rule, and the same no-sampling guarantee. The rule is frozen
+BEFORE any metric is materialized and is recorded verbatim in the population
+manifest and the profile report.
+
+| Property | Value |
+| --- | --- |
+| Population ID | `freshretailnet-real-population-v2` |
+| Selection rule | keys observed in train whose combined train+eval records span at least `REQUIRED_HISTORY_DAYS = 63` consecutive days AND share the identical date span (modal span among qualifying keys); sort by ascending `(store_id, product_id)`; enforce a structural store-diversity cap of at most `PER_STORE_CAP_KEYS = 10` keys per store; select the first `TARGET_POPULATION_KEYS = 100` keys overall |
+| Eligible keys | 50,000 (every key spans 97 days, 2024-03-28 → 2024-07-02) |
+| Selected keys | 100 keys across **10 stores** (stores 0–9, 10 each) |
+| Selected products | **40 distinct products** (verified from the bytes; not the full 865) |
+| v1 keys preserved | yes — store 0's first 10 keys are exactly the v1 selection |
+| Selected rows | 9,700 (train 9,000 / eval 700) of 4,850,000 source rows |
+| Exclusion reasons | `beyond_store_cap` 41,053 · `beyond_target` 8,847 (49,900 excluded) |
+| Coverage | 0.2% of keys and rows |
+| Selection inputs | metadata only (key presence + date spans) — demand/stockout values never influence selection |
+| Seed / sampling | none (`seed: null`); fully deterministic |
+| Committed artifacts | `data/manifests/freshretailnet-real-population-v2.json` (generated), `data/reports/freshretailnet-real-population-profile-v2.json` (dry-run profile) |
+| Expanded report | `data/evaluations/freshretailnet-real-expanded-report.json` (distinct from the v1 report) |
+
+The v1/v2 difference is **only the population size and structure**: the source
+snapshot, canonicalization, stockout semantics, checksums, protocol, models,
+and policies are identical. v2 is strictly opt-in (`materialize --source real
+--population …`); without it the real mode keeps the v1 10-key behavior and
+report.
+
 ## Remaining limitations (real snapshot)
 
-- The evaluation runs on a **deterministic bounded population** (first 10
-  store-product keys under the documented rule), not the full 50,000-key
-  snapshot; it is labeled
-  `Deterministic bounded evaluation over pinned snapshot` and does not
-  generalize to other keys, periods, or retailers.
+- The evaluation runs on a **deterministic bounded population**, not the full
+  50,000-key snapshot: v1 = first 10 keys (all store 0); v2 (opt-in) = 100 keys
+  across 10 stores (stores 0–9). Both are labeled
+  `Deterministic bounded evaluation over pinned snapshot` /
+  `Deterministic expanded bounded evaluation over pinned snapshot` and neither
+  generalizes to other keys, periods, or retailers.
+- The expanded population covers 10 of 898 stores and 40 of 865 products;
+  aggregate metrics describe the selected keys only.
 - `demand_units` is **observed sales**; censored demand during stockouts is
   documented, not recovered.
 - Forecasts use only lags, rolling statistics, and calendar features;
@@ -301,10 +347,11 @@ No number produced from it is a real-world result.
 - [x] Stockout derivation finalized as `stock_hour6_22_cnt > 0` and verified on real bytes (never from zero sales).
 - [x] Canonical-content SHA-256 computed and recorded; raw-vs-canonical checksum distinction documented.
 - [x] Checksum/manifest policy defined and enforced for real snapshots.
+- [x] Expanded population (v2): deterministic 100-key selection frozen before any metric, generated population manifest and dry-run profile committed, v1 report untouched.
 - [x] Synthetic fixture committed under `data/fixtures/` and clearly labeled.
 
 **Acceptance status: ACCEPTED with conditions.** Methodology development on the
-synthetic fixture and a **deterministic bounded evaluation on the pinned real
-snapshot** (10 of 50,000 keys) are both implemented and reproducible. The real
-evaluation remains **bounded** by design; no full-dataset, production, or
-generalization claim is made.
+synthetic fixture and **deterministic bounded evaluations on the pinned real
+snapshot** (v1: 10 of 50,000 keys; v2 opt-in: 100 of 50,000 keys) are both
+implemented and reproducible. The real evaluations remain **bounded** by
+design; no full-dataset, production, or generalization claim is made.

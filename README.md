@@ -28,11 +28,12 @@ replenishment decisions, built with reproducible evidence at its center.
   (`data/fixtures/`). No metric, forecast, cost, or recommendation there is a
   real-world result.
 - **The real-snapshot evaluation is bounded and clearly separated.** It lives
-  in `data/evaluations/freshretailnet-real-report.json`, is labeled
-  `Deterministic bounded evaluation over pinned snapshot`, covers only the
-  first 10 store-product keys of the 50,000-key snapshot under a documented
-  deterministic rule, and **does not generalize**. It is never called a
-  full-dataset or production result.
+  in `data/evaluations/freshretailnet-real-report.json` (v1: first 10 keys of
+  the 50,000-key snapshot) and
+  `data/evaluations/freshretailnet-real-expanded-report.json` (v2, opt-in: 100
+  keys across 10 stores). Both are labeled as deterministic bounded evaluations
+  over the pinned snapshot under a documented rule and **do not generalize**.
+  They are never called full-dataset or production results.
 - **No claim of optimality** anywhere: models and policies are selected under
   documented rules, never labeled optimal.
 
@@ -96,6 +97,18 @@ uv run python -m retail_demand_inventory.data.schema_report \
 uv run python -m retail_demand_inventory.evaluation.materialize \
     --source real --manifest data/manifests/freshretailnet-real.json
 # -> data/evaluations/freshretailnet-real-report.json
+
+# Expanded (v2) population — opt-in, deterministic, 100 keys / 10 stores
+uv run python -m retail_demand_inventory.data.population_manifest \
+    --source-manifest data/manifests/freshretailnet-real.json \
+    --raw-dir data/raw --out data/manifests/freshretailnet-real-population-v2.json
+uv run python -m retail_demand_inventory.data.population_profile \
+    --manifest data/manifests/freshretailnet-real.json \
+    --report data/reports/freshretailnet-real-population-profile-v2.json
+uv run python -m retail_demand_inventory.evaluation.materialize \
+    --source real --manifest data/manifests/freshretailnet-real.json \
+    --population data/manifests/freshretailnet-real-population-v2.json
+# -> data/evaluations/freshretailnet-real-expanded-report.json
 
 uv sync --dev --extra demo
 uv run --extra demo streamlit run scripts/demo_forecast.py
